@@ -5,7 +5,7 @@ mst() {
   local manager_directory=${${(%):-%x}:A:h}
   local manager_launcher="$manager_directory/mst.sh"
   if [[ ! -f "$manager_launcher" || -L "$manager_launcher" ]]; then
-    print -ru2 -- "mst: 管理器入口缺失或为符号链接，请重新运行安装脚本：$manager_launcher"
+    print -ru2 -- "mst: Manager launcher is missing or linked; re-run the installation command: $manager_launcher"
     return 1
   fi
   command /bin/sh "$manager_launcher" "$@"

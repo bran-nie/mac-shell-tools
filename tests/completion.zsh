@@ -72,6 +72,9 @@ LISTMAX=0
 COLUMNS=160
 LINES=40
 setopt no_beep
+setopt auto_list
+unsetopt list_ambiguous
+zstyle ':completion:*' verbose yes
 bindkey -e
 autoload -Uz compinit
 fpath=( /usr/share/zsh/$ZSH_VERSION/functions /usr/share/zsh/site-functions )
@@ -105,6 +108,8 @@ expect_completion 中文目录 'dsize 中' 'dsize 中文目录/'
 expect_completion 选项先于目录 'dsize -n 25 sp' 'dsize -n 25 space\ directory/'
 expect_completion 帮助长选项 'dsize --he' 'dsize --help '
 expect_completion 帮助短选项 'dsize -h' 'dsize -h '
+expect_completion 版本长选项 'dsize --ver' 'dsize --version '
+expect_completion 版本短选项 'dsize -V' 'dsize -V '
 expect_completion 深度短选项 'dsize -d' 'dsize -d '
 expect_completion 条数短选项 'dsize -n' 'dsize -n '
 expect_completion 深度长选项 'dsize --dep' 'dsize --depth=' 'dsize --depth '
@@ -120,5 +125,17 @@ expect_completion 重复长选项 'dsize --depth=2 --depth=5' 'dsize --depth=2 -
 expect_completion 分隔符目录 'dsize -- -da' 'dsize -- -dashdir/'
 expect_completion 数值不当目录 'dsize -d sp' 'dsize -d sp'
 expect_completion 不补全第二目录 'dsize ordinary sp' 'dsize ordinary sp'
+expect_completion 英文选项列表 'dsize -' 'dsize -'
+zselect -t 10
+while zpty -r mst-completion chunk 2>/dev/null; do terminal_output+=$chunk; done
+[[ $terminal_output == *'Show help'* && $terminal_output == *'Maximum lines, default 25'* ]] || fail "英文补全说明缺失：${(V)terminal_output}"
+# Change language in the running shell; the next real Tab must use it immediately.
+zpty -w -n mst-completion $'\C-U''export MST_LANG=zh-CN; print -r -- __MST_LANGUAGE_READY__'$'\n'
+read_until __MST_LANGUAGE_READY__
+expect_completion 中文选项列表 'dsize -' 'dsize -'
+zselect -t 10
+while zpty -r mst-completion chunk 2>/dev/null; do terminal_output+=$chunk; done
+[[ $terminal_output == *'显示帮助'* && $terminal_output == *'25'* ]] || fail '中文补全说明未切换'
+expect_completion 中文目录补全 'dsize sp' 'dsize space\ directory/'
 [[ ! -e "$test_directory/scan-log" ]] || fail '补全触发了 du 扫描'
 print -r -- "PASS completion: $checks 项真实 Tab 补全及扫描隔离。"

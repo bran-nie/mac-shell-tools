@@ -2,19 +2,18 @@
 # mst 常驻入口及在线操作测试：curl 完全由本地替身提供，绝不下载或安装远端代码。
 set -eu
 project_dir=$1
+. "$project_dir/tests/common.sh"
 test_directory=$(mktemp -d "${TMPDIR:-/tmp}/mac-shell-tools-mst-test.XXXXXX")
 trap 'chmod -R u+rwX "$test_directory"; rm -rf "$test_directory"' 0
 trap 'exit 1' HUP INT TERM
 checks=0
 fixture="$test_directory/release"
-mkdir -p "$fixture/scripts" "$fixture/tools" "$fixture/lib" "$test_directory/mock" "$test_directory/tmp"
-cp "$project_dir/scripts/build-installer.sh" "$project_dir/scripts/installer.sh.in" "$project_dir/scripts/bootstrap.sh.in" "$fixture/scripts/"
-cp "$project_dir/lib/mst.zsh" "$fixture/lib/"
-cp "$project_dir/tools/init.zsh" "$project_dir/tools/dsize.zsh" "$fixture/tools/"
-cp "$project_dir/LICENSE" "$fixture/"
+copy_package "$project_dir" "$fixture"
+mkdir -p "$test_directory/mock" "$test_directory/tmp"
 printf '%s\n' dsize.zsh other.zsh > "$fixture/scripts/tools.list"
-printf '%s\n' 'other() { print -r -- other-ready; }' > "$fixture/tools/other.zsh"
-printf '\n# release two\n' >> "$fixture/tools/dsize.zsh"
+mkdir -p "$fixture/tools/other"
+printf '%s\n' 'other() { print -r -- other-ready; }' > "$fixture/tools/other/other.zsh"
+printf '\n# release two\n' >> "$fixture/tools/dsize/dsize.zsh"
 printf '\n# manager release two\n' >> "$fixture/lib/mst.zsh"
 sh "$fixture/scripts/build-installer.sh" > "$test_directory/build"
 
@@ -49,8 +48,8 @@ new_home() {
   test_home="$test_directory/$1/home"
   test_config=
   test_zdot=
-  install_directory="$test_home/.config/zsh/tools"
-  manager_directory="$install_directory/.mac-shell-tools"
+  install_directory="$test_home/.config/zsh/mac-shell-tools"
+  manager_directory="$install_directory/manager"
   zshrc="$test_home/.zshrc"
   mkdir -p "$test_home"
 }
@@ -102,7 +101,7 @@ backup_count() {
 
 managed_identity() {
   for file in "$manager_directory/manager-core.sh" "$manager_directory/mst.sh" "$manager_directory/mst.zsh" \
-      "$install_directory/init.zsh" "$zshrc" "$install_directory/dsize.zsh" "$install_directory/.mac-shell-tools-installed"; do
+      "$install_directory/init.zsh" "$zshrc" "$install_directory/tools/dsize/dsize.zsh" "$install_directory/tools/installed.list"; do
     if [ -f "$file" ]; then stat -f '%i:%m:%z' "$file"; cksum "$file"; fi
   done
 }
@@ -110,7 +109,7 @@ managed_identity() {
 new_home initial
 run_bootstrap 0
 assert_functions 0 0
-[ ! -e "$install_directory/dsize.zsh" ] && [ ! -e "$install_directory/.mac-shell-tools-installed" ] ||
+[ ! -e "$install_directory/tools/dsize/dsize.zsh" ] && [ ! -e "$install_directory/tools/installed.list" ] ||
   fail '默认引导安装了具体工具'
 identity=$(managed_identity)
 run_bootstrap 0 --unattended
@@ -118,7 +117,7 @@ run_bootstrap 0 --unattended
 run_mst 0
 grep -Fq 'Usage: mst' "$test_directory/out" || fail 'mst 无参数未显示帮助'
 run_mst 0 list
-grep -Eq '^dsize[[:space:]]+not installed$' "$test_directory/out" || fail '初始工具列表错误'
+grep -Eq '^dsize[[:space:]]+not installed[[:space:]]+' "$test_directory/out" || fail '初始工具列表错误'
 run_mst 0 update
 run_mst 2 upgrade dsize
 run_mst 2 upgrade --all
@@ -127,37 +126,38 @@ run_mst 2 upgrade --all
 # 管理器升级刷新目录，不安装或更新任何具体工具。
 run_mst 0 upgrade
 assert_functions 0 0
-[ ! -e "$install_directory/.mac-shell-tools-installed" ] || fail '纯管理器升级修改工具清单'
+[ ! -e "$install_directory/tools/installed.list" ] || fail '纯管理器升级修改工具清单'
 run_mst 0 list
-grep -Eq '^other[[:space:]]+not installed$' "$test_directory/out" || fail '升级未发现新工具'
+grep -Eq '^other[[:space:]]+not installed[[:space:]]+' "$test_directory/out" || fail '升级未发现新工具'
 run_mst 0 install dsize
 assert_functions 1 0
-cmp -s "$install_directory/dsize.zsh" "$fixture/tools/dsize.zsh" || fail '在线安装未使用新版本'
+tool_matches "$fixture" dsize "$install_directory/tools/dsize/dsize.zsh" || fail '在线安装未使用新版本'
 manager_identity=$(stat -f '%i:%m' "$manager_directory/manager-core.sh")
-state_identity=$(stat -f '%i:%m' "$install_directory/.mac-shell-tools-installed")
+state_identity=$(stat -f '%i:%m' "$install_directory/tools/installed.list")
 
 # update 下载最新工具，但不会隐式升级管理器或安装新工具。
-printf '\n# release three\n' >> "$fixture/tools/dsize.zsh"
+printf '\n# release three\n' >> "$fixture/tools/dsize/dsize.zsh"
 printf '\n# manager release three\n' >> "$fixture/lib/mst.zsh"
 sh "$fixture/scripts/build-installer.sh" > "$test_directory/build"
 run_mst 0 update
-cmp -s "$install_directory/dsize.zsh" "$fixture/tools/dsize.zsh" || fail 'update 未获取最新工具'
+tool_matches "$fixture" dsize "$install_directory/tools/dsize/dsize.zsh" || fail 'update 未获取最新工具'
 [ "$(stat -f '%i:%m' "$manager_directory/manager-core.sh")" = "$manager_identity" ] || fail 'update 隐式升级管理器'
-[ "$(stat -f '%i:%m' "$install_directory/.mac-shell-tools-installed")" = "$state_identity" ] || fail 'update 重写未变清单'
-[ ! -e "$install_directory/other.zsh" ] || fail 'update 安装新工具'
-tool_identity=$(stat -f '%i:%m' "$install_directory/dsize.zsh")
+[ "$(stat -f '%i:%m' "$install_directory/tools/installed.list")" != "$state_identity" ] || fail 'update 未记录新的工具版本'
+state_identity=$(stat -f '%i:%m' "$install_directory/tools/installed.list")
+[ ! -e "$install_directory/tools/other/other.zsh" ] || fail 'update 安装新工具'
+tool_identity=$(stat -f '%i:%m' "$install_directory/tools/dsize/dsize.zsh")
 run_mst 0 upgrade --no-run-zsh
 [ "$(stat -f '%i:%m' "$manager_directory/manager-core.sh")" != "$manager_identity" ] || fail 'upgrade 未升级管理器'
-[ "$(stat -f '%i:%m' "$install_directory/dsize.zsh")" = "$tool_identity" ] || fail 'upgrade 修改已安装工具'
-[ "$(stat -f '%i:%m' "$install_directory/.mac-shell-tools-installed")" = "$state_identity" ] || fail 'upgrade 修改已安装清单'
+[ "$(stat -f '%i:%m' "$install_directory/tools/dsize/dsize.zsh")" = "$tool_identity" ] || fail 'upgrade 修改已安装工具'
+[ "$(stat -f '%i:%m' "$install_directory/tools/installed.list")" = "$state_identity" ] || fail 'upgrade 修改已安装清单'
 run_mst 0 upgrade
-[ "$(stat -f '%i:%m' "$install_directory/dsize.zsh")" = "$tool_identity" ] || fail '重复 upgrade 修改工具'
+[ "$(stat -f '%i:%m' "$install_directory/tools/dsize/dsize.zsh")" = "$tool_identity" ] || fail '重复 upgrade 修改工具'
 
-printf '\n# keep my existing dsize\n' >> "$install_directory/dsize.zsh"
-cp "$install_directory/dsize.zsh" "$test_directory/kept-dsize"
+printf '\n# keep my existing dsize\n' >> "$install_directory/tools/dsize/dsize.zsh"
+cp "$install_directory/tools/dsize/dsize.zsh" "$test_directory/kept-dsize"
 run_mst 0 install other
 assert_functions 1 1
-cmp -s "$install_directory/dsize.zsh" "$test_directory/kept-dsize" || fail '选择安装更新无关工具'
+cmp -s "$install_directory/tools/dsize/dsize.zsh" "$test_directory/kept-dsize" || fail '选择安装更新无关工具'
 
 # 查询及卸载完全离线；卸载全部工具后 mst 仍可使用、更新及重新安装。
 downloads=$(download_count)
@@ -195,8 +195,8 @@ grep -Fq 'https://raw.githubusercontent.com/bran-nie/mac-shell-tools/main/instal
 new_home custom-paths
 test_config="$test_directory/config 空格' "
 test_zdot="$test_directory/zdot 空格' "
-install_directory="$test_config/zsh/tools"
-manager_directory="$install_directory/.mac-shell-tools"
+install_directory="$test_config/zsh/mac-shell-tools"
+manager_directory="$install_directory/manager"
 zshrc="$test_zdot/.zshrc"
 run_bootstrap 0
 run_mst 0 list

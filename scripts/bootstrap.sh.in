@@ -8,7 +8,7 @@ bootstrap_main() {
   trap 'rm -rf "$bootstrap_directory"' 0
   trap 'exit 1' HUP INT TERM
   write_manager_payload || {
-    printf '%s\n' 'mac-shell-tools: 无法展开管理器。' >&2
+    printf '%s\n' 'mst: Cannot unpack the manager.' >&2
     exit 1
   }
   /bin/sh -n "$bootstrap_directory/manager-core.sh" || exit 1

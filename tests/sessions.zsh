@@ -4,6 +4,7 @@ emulate -R zsh
 setopt nounset
 if [[ ${MST_TEST_DEBUG:-no} == yes ]]; then setopt xtrace; fi
 project_directory=$1
+. "$project_directory/tests/common.sh"
 test_directory=$(mktemp -d "${TMPDIR:-/tmp}/mac-shell-tools-session-test.XXXXXX") || exit 1
 zmodload zsh/zpty || exit 1
 zmodload zsh/zselect || exit 1
@@ -19,13 +20,8 @@ export SHELL_SESSIONS_DISABLE=1
 mkdir "$test_directory/mock"
 # 在线命令只读本地构建的发布包，避免终端测试访问网络。
 fixture="$test_directory/release"
-mkdir -p "$fixture/scripts" "$fixture/tools" "$fixture/lib"
-cp "$project_directory/scripts/build-installer.sh" "$project_directory/scripts/installer.sh.in" \
-  "$project_directory/scripts/bootstrap.sh.in" "$project_directory/scripts/tools.list" "$fixture/scripts/"
-cp "$project_directory/tools/"*.zsh "$fixture/tools/"
-cp "$project_directory/lib/mst.zsh" "$fixture/lib/"
-cp "$project_directory/LICENSE" "$fixture/"
-printf '\n# terminal release two\n' >> "$fixture/tools/dsize.zsh"
+copy_package "$project_directory" "$fixture"
+printf '\n# terminal release two\n' >> "$fixture/tools/dsize/dsize.zsh"
 printf '\n# terminal manager release two\n' >> "$fixture/lib/mst.zsh"
 sh "$fixture/scripts/build-installer.sh" > "$test_directory/build-log" || exit 1
 export MST_RELEASE="$fixture/install.sh"
@@ -43,7 +39,7 @@ cat > "$test_directory/mock/zsh" <<'MOCK'
 #!/bin/sh
 case ${1:-} in
   -l)
-    if [ -d "$HOME/.config/zsh/tools/.mac-shell-tools-install.lock" ]; then
+    if [ -d "$HOME/.config/zsh/mac-shell-tools/.mac-shell-tools-install.lock" ]; then
       printf 'lock still held\n' >&2
       exit 1
     fi
@@ -150,7 +146,7 @@ login_count() {
 new_home manager-first
 start_command /bin/sh "$MST_INSTALLER"
 expect_login 0
-[[ ! -e "$test_home/.config/zsh/tools/dsize.zsh" ]] || fail '首次安装启用了工具'
+[[ ! -e "$test_home/.config/zsh/mac-shell-tools/tools/dsize/dsize.zsh" ]] || fail '首次安装启用了工具'
 zpty -w mst-session 'mst list; print -r -- __MST_LIST_""OK__'
 read_until __MST_LIST_OK__
 [[ $terminal_output == *'not installed'* ]] || fail '首次会话无法查询工具'
@@ -160,7 +156,7 @@ start_command /bin/zsh -f -c "$online_command" -- install dsize
 expect_login 1
 [[ ! -e "$test_home/unused-zdot" ]] || fail '在线安装使用了变化后的 ZDOTDIR'
 close_session
-printf '\n# outdated installed tool\n' >> "$test_home/.config/zsh/tools/dsize.zsh"
+printf '\n# outdated installed tool\n' >> "$test_home/.config/zsh/mac-shell-tools/tools/dsize/dsize.zsh"
 start_command /bin/zsh -f -c "$online_command" -- update
 expect_login 1
 close_session
@@ -189,7 +185,13 @@ for arguments in 'install dsize' list --help 'install missing'; do
   if [[ $arguments == 'install missing' ]]; then expected_exit=2; fi
   expect_exit_without_login "$previous" "$expected_exit"
 done
-printf '\n# stale revision\n' >> "$test_home/.config/zsh/tools/dsize.zsh"
+previous=$(login_count)
+start_command /bin/zsh -f -c "$online_command" -- config language zh-CN
+expect_exit_without_login "$previous"
+previous=$(login_count)
+start_command /bin/zsh -f -c "$online_command" -- config language en
+expect_exit_without_login "$previous"
+printf '\n# stale revision\n' >> "$test_home/.config/zsh/mac-shell-tools/tools/dsize/dsize.zsh"
 start_command /bin/sh "$MST_INSTALLER" update
 expect_login 1
 close_session

@@ -76,7 +76,7 @@ compare_reference 分隔符后选项样路径 2 25 ./-example -d 2 -- -example
 compare_reference 最大条目 2 1 . -n 1
 [[ $(<"$test_directory/out") == *$'\t.' ]] || fail '最后一行应为最大目标汇总'
 expect_status 0 帮助 dsize --help
-[[ $(<"$test_directory/out") == *'最后一次生效'* ]] || fail '帮助缺少重复选项说明'
+[[ $(<"$test_directory/out") == *'last repeated option wins'* ]] || fail '帮助缺少重复选项说明'
 expect_status 0 短帮助 dsize -h
 
 for option in -d --depth -n --lines; do
@@ -104,7 +104,7 @@ expect_status 2 空目录参数 dsize ''
 chmod 000 "$restricted_directory/hidden"
 if [[ ! -r "$restricted_directory/hidden" ]]; then
   expect_status 1 真实权限限制 dsize "$restricted_directory"
-  [[ -s "$test_directory/out" && $(<"$test_directory/err") == *'不完整扫描'* ]] || fail '权限错误缺少部分结果或说明'
+  [[ -s "$test_directory/out" && $(<"$test_directory/err") == *'Incomplete scan'* ]] || fail '权限错误缺少部分结果或说明'
 else
   print -ru2 -- 'SKIP: 当前身份可绕过目录权限；仍验证受控 du 失败。'
 fi
@@ -129,7 +129,7 @@ exit 1
 MOCK
   chmod +x "$test_directory/mock/$stage_name"
   PATH="$test_directory/mock:$original_path" expect_status 1 "$stage_name 失败" dsize .
-  [[ $(<"$test_directory/err") == *'排序或截取输出失败'* ]] || fail "$stage_name 缺少阶段错误"
+  [[ $(<"$test_directory/err") == *'Sorting or truncating output failed'* ]] || fail "$stage_name 缺少阶段错误"
   rm "$test_directory/mock/$stage_name"
 done
 ln -s /usr/bin/du "$test_directory/mock/du"
@@ -146,19 +146,21 @@ exit 0
 MOCK
 chmod +x "$test_directory/mock/du"
 PATH="$test_directory/mock:$original_path" expect_status 1 中断 dsize .
-[[ $(<"$test_directory/err") == *'中断'* ]] || fail '中断诊断缺失'
+[[ $(<"$test_directory/err") == *'Scan interrupted'* ]] || fail '中断诊断缺失'
 [[ $PWD == $before_directory && $(setopt) == $before_options && $(trap) == $before_traps ]] || fail '调用改变 Shell 状态'
 
 # 集中入口只执行注册文件，重新 source 会刷新定义；缺失工具安静跳过。
 mkdir "$test_directory/isolated-tools"
-cp "$project_directory/tools/"*.zsh "$test_directory/isolated-tools/"
+cp "$project_directory/tools/init.zsh" "$test_directory/isolated-tools/"
+cp -R "$project_directory/tools/dsize" "$test_directory/isolated-tools/"
+cp "$project_directory/lib/i18n.sh" "$test_directory/isolated-tools/dsize/"
 printf 'print -r -- unexpected\n' > "$test_directory/isolated-tools/unregistered.zsh"
 source "$test_directory/isolated-tools/init.zsh" > "$test_directory/load-out"
 [[ ! -s "$test_directory/load-out" ]] || fail '执行了未注册文件'
 dsize() { return 42 }
 source "$test_directory/isolated-tools/init.zsh"
 expect_status 0 重载刷新 dsize --help
-rm "$test_directory/isolated-tools/dsize.zsh"
+rm "$test_directory/isolated-tools/dsize/dsize.zsh"
 unfunction dsize
 source "$test_directory/isolated-tools/init.zsh" > "$test_directory/load-out" 2> "$test_directory/load-err"
 [[ ! -s "$test_directory/load-out" && ! -s "$test_directory/load-err" && $+functions[dsize] == 0 ]] || fail '缺失工具未安静跳过'
