@@ -21,8 +21,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # Package version: 0.1.0-dev+aa6b7320aaee
-# Source revision: 02d9250c9833bf19772b5d41ebec70d8b5883f61
-# Source state: modified
+# Source revision: 8068724cd2e45d5ccaba632db6d1bcfe37ef5e1e
+# Source state: clean
 # Source digest: aa6b7320aaee0b998e284770631d95a612ee3b005dcdcc4fd87f9484ee997c89
 # mac-shell-tools bootstrap v1
 # 自包含引导脚本：先展开共享管理器，再在当前进程中执行。
@@ -308,8 +308,8 @@ RUNZSH=no 也可关闭新的登录会话。
 }
 
 package_version='0.1.0-dev+aa6b7320aaee'
-package_revision='02d9250c9833bf19772b5d41ebec70d8b5883f61'
-package_state='modified'
+package_revision='8068724cd2e45d5ccaba632db6d1bcfe37ef5e1e'
+package_state='clean'
 # mac-shell-tools 共享管理器；引导安装与常驻 mst 共用此实现。
 # 由生成脚本打包运行时源码，管理器始终从文件加载。
 set -eu
@@ -1583,7 +1583,7 @@ _mac_shell_tools_dsize_help() {
 # Values are embedded when building the package, so --version describes the
 # function actually loaded in this session even if its on-disk file was updated.
 _mac_shell_tools_dsize_version() {
-  local version='0.1.0-dev+aa6b7320aaee' revision='02d9250c9833bf19772b5d41ebec70d8b5883f61' source_state='modified'
+  local version='0.1.0-dev+aa6b7320aaee' revision='8068724cd2e45d5ccaba632db6d1bcfe37ef5e1e' source_state='clean'
   case $version in @*) version=development; revision=unbuilt; source_state=unknown ;; esac
   print -r -- "dsize $version ($revision; $source_state)"
 }
@@ -1756,8 +1756,8 @@ MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
   mkdir -p "$stage/payload/tools/dsize" || return 1
   cat > "$stage/payload/tools/dsize/version" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
 0.1.0-dev+aa6b7320aaee
-02d9250c9833bf19772b5d41ebec70d8b5883f61
-modified
+8068724cd2e45d5ccaba632db6d1bcfe37ef5e1e
+clean
 MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
   mkdir -p "$stage/payload/tools/dsize" || return 1
   cat > "$stage/payload/tools/dsize/i18n.sh" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
@@ -1932,7 +1932,7 @@ _mac_shell_tools_portwho_message() (
 )
 
 _mac_shell_tools_portwho_version() {
-  local version='0.1.0-dev+aa6b7320aaee' revision='02d9250c9833bf19772b5d41ebec70d8b5883f61' source_state='modified'
+  local version='0.1.0-dev+aa6b7320aaee' revision='8068724cd2e45d5ccaba632db6d1bcfe37ef5e1e' source_state='clean'
   case $version in @*) version=development; revision=unbuilt; source_state=unknown ;; esac
   print -r -- "portwho $version ($revision; $source_state)"
 }
@@ -2031,8 +2031,8 @@ MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
   mkdir -p "$stage/payload/tools/portwho" || return 1
   cat > "$stage/payload/tools/portwho/version" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
 0.1.0-dev+aa6b7320aaee
-02d9250c9833bf19772b5d41ebec70d8b5883f61
-modified
+8068724cd2e45d5ccaba632db6d1bcfe37ef5e1e
+clean
 MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
   mkdir -p "$stage/payload/tools/portwho" || return 1
   cat > "$stage/payload/tools/portwho/i18n.sh" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
@@ -2189,7 +2189,7 @@ _mac_shell_tools_extract_message() (
 )
 
 _mac_shell_tools_extract_version() {
-  local version='0.1.0-dev+aa6b7320aaee' revision='02d9250c9833bf19772b5d41ebec70d8b5883f61' source_state='modified'
+  local version='0.1.0-dev+aa6b7320aaee' revision='8068724cd2e45d5ccaba632db6d1bcfe37ef5e1e' source_state='clean'
   case $version in @*) version=development; revision=unbuilt; source_state=unknown ;; esac
   print -r -- "extract $version ($revision; $source_state)"
 }
@@ -2421,8 +2421,8 @@ MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
   mkdir -p "$stage/payload/tools/extract" || return 1
   cat > "$stage/payload/tools/extract/version" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
 0.1.0-dev+aa6b7320aaee
-02d9250c9833bf19772b5d41ebec70d8b5883f61
-modified
+8068724cd2e45d5ccaba632db6d1bcfe37ef5e1e
+clean
 MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
   mkdir -p "$stage/payload/tools/extract" || return 1
   cat > "$stage/payload/tools/extract/i18n.sh" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
