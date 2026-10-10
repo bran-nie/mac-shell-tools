@@ -29,7 +29,7 @@ run_install() {
   expected=$1
   label=$2
   shift 2
-  if env HOME="$test_home" XDG_CONFIG_HOME= ZDOTDIR= "$@" /bin/sh "$installer" \
+  if env HOME="$test_home" XDG_CONFIG_HOME= ZDOTDIR= "$@" /bin/sh "$installer" install \
       > "$test_directory/out" 2> "$test_directory/err"; then actual=0; else actual=$?; fi
   [ "$actual" -eq "$expected" ] || fail "$label: 预期 $expected，实际 $actual"
   if [ "$expected" -ne 0 ] && [ ! -s "$test_directory/err" ]; then fail "$label: 缺少诊断"; fi
@@ -262,7 +262,7 @@ installer="$test_directory/share/standalone.sh"
 run_install 0 独立脚本
 assert_usable "$zshrc"
 new_home stdin
-if cat "$installer" | env HOME="$test_home" XDG_CONFIG_HOME= ZDOTDIR= /bin/sh \
+if cat "$installer" | env HOME="$test_home" XDG_CONFIG_HOME= ZDOTDIR= /bin/sh -s -- install \
     > "$test_directory/out" 2> "$test_directory/err"; then checks=$((checks + 1)); else fail 'stdin 安装失败'; fi
 assert_usable "$zshrc"
 printf 'PASS install: %s 项安装检查及配置保留断言。\n' "$checks"

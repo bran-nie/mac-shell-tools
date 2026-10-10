@@ -11,7 +11,7 @@ esac
 for script in install.sh scripts/*.sh scripts/*.sh.in tests/*.sh; do
   sh -n "$script"
 done
-for script in tools/*.zsh tests/*.zsh; do
+for script in tools/*.zsh lib/*.zsh tests/*.zsh; do
   zsh -n "$script"
 done
 sh scripts/build-installer.sh --check
@@ -20,7 +20,7 @@ test_root=$(mktemp -d "${TMPDIR:-/tmp}/mac-shell-tools-check.XXXXXX")
 trap 'rm -rf "$test_root"' 0
 trap 'exit 1' HUP INT TERM
 mkdir -p "$test_root/home" "$test_root/tmp"
-for suite in dsize.zsh install.sh completion.zsh; do
+for suite in dsize.zsh install.sh management.sh mst.sh completion.zsh sessions.zsh; do
   case $suite in
     *.zsh)
       env HOME="$test_root/home" XDG_CONFIG_HOME= ZDOTDIR= TMPDIR="$test_root/tmp" \

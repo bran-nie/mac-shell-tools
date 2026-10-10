@@ -1,49 +1,136 @@
 #!/bin/sh
-# mac-shell-tools 单文件安装器，由 scripts/build-installer.sh 生成。
-# 工具源码只维护 tools/；本文件的内嵌内容随生成过程同步。
+# mac-shell-tools 共享管理器；引导安装与常驻 mst 共用此实现。
+# 由生成脚本打包运行时源码，管理器始终从文件加载。
 set -eu
 
 stage=
 pending_file=
 lock_directory=
 has_lock=0
+changes_made=0
+owned_bootstrap_directory=
+init_begin='# >>> mac-shell-tools managed tools >>>'
+init_end='# <<< mac-shell-tools managed tools <<<'
+rc_begin='# >>> mac-shell-tools >>>'
+rc_end='# <<< mac-shell-tools <<<'
 
-# 所有错误指明受影响的位置，避免安静失败或继续写入后续配置。
 fail() {
   printf 'mac-shell-tools: %s\n' "$*" >&2
   exit 1
 }
 
-# 只清理本进程创建的暂存内容和锁，不清理用户文件或备份。
+usage_error() {
+  printf 'mac-shell-tools: %s\n运行 mst --help 或 sh install.sh --help 查看用法。\n' "$*" >&2
+  exit 2
+}
+
+usage() {
+  cat <<'MAC_SHELL_TOOLS_USAGE'
+Usage: mst <command> [tool ...] [options]
+       sh install.sh [command] [tool ...] [options]
+
+Commands:
+  install [tool ...]     Install/update selected tools; no names means all.
+  update [tool ...]      Update installed tools; no names means all installed.
+  uninstall tool ...    Uninstall selected tools.
+  uninstall --all       Uninstall all registered tools.
+  list                  Show available and installed tools (offline).
+  upgrade               Upgrade mst and its catalog; keep tools unchanged.
+
+Options:
+  --all                 Select all (cannot be combined with tool names).
+  --no-run-zsh          Do not start a new Zsh session.
+  --unattended          Non-interactive operation; do not start Zsh.
+  -h, --help            Show this help.
+
+Running install.sh without a command installs mst itself, without tools.
+Installed mst install/update/upgrade fetch the latest GitHub package.
+RUNZSH=no also disables the new session.
+Interactive changes start a new login Zsh in the same terminal.
+MAC_SHELL_TOOLS_USAGE
+}
+
 cleanup() {
-  if [ -n "$pending_file" ]; then rm -f "$pending_file"; fi
-  if [ -n "$stage" ]; then rm -rf "$stage"; fi
-  if [ "$has_lock" -eq 1 ]; then rmdir "$lock_directory"; fi
+  if [ -n "$pending_file" ]; then rm -f "$pending_file"; pending_file=; fi
+  if [ -n "$stage" ]; then rm -rf "$stage"; stage=; fi
+  if [ "$has_lock" -eq 1 ]; then
+    rmdir "$lock_directory"
+    has_lock=0
+  fi
+  if [ -n "$owned_bootstrap_directory" ]; then
+    rm -rf "$owned_bootstrap_directory"
+    owned_bootstrap_directory=
+  fi
 }
 trap cleanup 0
-trap 'fail "安装已中断；已生成的备份可用于恢复。"' HUP INT TERM
+trap 'fail "操作已中断；已生成的备份可用于恢复。"' HUP INT TERM
 
-# 环境路径必须绝对，避免在调用者工作目录里悄悄创建配置。
-require_absolute() {
-  case $2 in
-    /*) ;;
-    *) fail "$1 必须是绝对路径：$2" ;;
+contains_file() {
+  case " $1 " in *" $2 "*) return 0 ;; *) return 1 ;; esac
+}
+
+valid_tool_name() {
+  case $1 in ''|[!a-z0-9]*|*[!a-z0-9-]*) return 1 ;; *) return 0 ;; esac
+}
+
+parse_arguments() {
+  action=setup
+  action_seen=no
+  requested_files=
+  all_requested=no
+  end_options=no
+  run_zsh=${RUNZSH:-yes}
+  case $run_zsh in yes|no) ;; *) usage_error 'RUNZSH 只能为 yes 或 no。' ;; esac
+  for argument in "$@"; do
+    if [ "$end_options" = no ]; then
+      case $argument in
+        -h|--help) usage; exit 0 ;;
+        --no-run-zsh|--unattended) run_zsh=no; continue ;;
+        --all) all_requested=yes; continue ;;
+        --) end_options=yes; continue ;;
+        -*) usage_error "未知参数：$argument" ;;
+      esac
+    fi
+    if [ "$action_seen" = no ]; then
+      case $argument in
+        install|update|uninstall|list|upgrade) action=$argument; action_seen=yes; continue ;;
+        *) usage_error "未知命令：$argument" ;;
+      esac
+    fi
+    valid_tool_name "$argument" || usage_error "无效工具名：$argument"
+    if ! contains_file "$requested_files" "$argument.zsh"; then
+      requested_files="$requested_files $argument.zsh"
+    fi
+  done
+  if [ "$all_requested" = yes ] && [ -n "$requested_files" ]; then
+    usage_error '--all 不能与工具名同时使用。'
+  fi
+  if [ "$action_seen" = no ] && [ "$all_requested" = yes ]; then action=install; fi
+  case $action in
+    list|upgrade)
+      if [ -n "$requested_files" ] || [ "$all_requested" = yes ]; then
+        usage_error "$action 不接受工具名或 --all。"
+      fi
+      ;;
+    uninstall)
+      if [ -z "$requested_files" ] && [ "$all_requested" = no ]; then
+        usage_error '请指定卸载工具，或使用 uninstall --all。'
+      fi
+      ;;
+    setup|install|update) ;;
   esac
 }
 
-# 配置文件链接不做原子替换；用户可先自行确认链接的维护方式。
-# 父目录的链接允许保留并经 cd -P 定位，不改写链接本身。
-check_file() {
-  if [ -L "$1" ]; then
-    fail "配置是符号链接，已保留，请手动处理后重试：$1"
-  fi
-  if [ -e "$1" ] && [ ! -f "$1" ]; then
-    fail "目标不是普通文件：$1"
-  fi
+require_absolute() {
+  case $2 in /*) ;; *) fail "$1 必须是绝对路径：$2" ;; esac
 }
 
-# 标记必须唯一、完整且顺序正确；相似但损坏的项目标记也拒绝。
-# 结果为 managed 或 absent，由调用者决定是否接受无标记文件。
+# 父目录链接经 cd -P 定位；文件及最终工具目录的链接不做替换。
+check_file() {
+  if [ -L "$1" ]; then fail "配置是符号链接，已保留：$1"; fi
+  if [ -e "$1" ] && [ ! -f "$1" ]; then fail "目标不是普通文件：$1"; fi
+}
+
 inspect_region() {
   region_state=$(awk -v begin="$2" -v end="$3" '
     $0 == begin {
@@ -64,151 +151,445 @@ inspect_region() {
   ' "$1") || fail "管理标记损坏或重复，请手动处理：$1"
 }
 
-# 只更新集中入口的管理区域；保留区域以外的引用、注释及顺序。
-merge_init() {
-  awk -v begin='# >>> mac-shell-tools managed tools >>>' \
-      -v end='# <<< mac-shell-tools managed tools <<<' '
-    NR == FNR {
-      if ($0 == begin) collecting = 1
-      if (collecting) replacement = replacement $0 "\n"
-      if ($0 == end) collecting = 0
-      next
-    }
-    $0 == begin { printf "%s", replacement; skipping = 1; next }
-    $0 == end { skipping = 0; next }
-    !skipping { print }
-  ' "$stage/init.zsh" "$install_directory/init.zsh" > "$stage/next-init.zsh" ||
-    fail "无法合并入口：$install_directory/init.zsh"
-}
-
-# 删除现有项目管理块后再追加新块，保证入口位于主配置末尾。
-# 非管理区域原样保留，不猜测其他 source 引用或函数的用途。
-prepare_zshrc() {
-  awk -v begin='# >>> mac-shell-tools >>>' \
-      -v end='# <<< mac-shell-tools <<<' '
+strip_region() {
+  awk -v begin="$2" -v end="$3" '
     $0 == begin { skipping = 1; next }
     $0 == end { skipping = 0; next }
-    skipping { next }
-    { print }
-  ' "$existing_zshrc" > "$stage/next-zshrc" || fail "无法准备主配置：$zshrc"
-
-  quoted_init=$(zsh -f -c 'print -r -- ${(qq)1}' -- "$install_directory/init.zsh") ||
-    fail "无法转义入口路径：$install_directory/init.zsh"
-  {
-    printf '%s\n' '# >>> mac-shell-tools >>>'
-    printf 'if [[ -f %s ]]; then\n' "$quoted_init"
-    printf '  source %s\n' "$quoted_init"
-    printf '%s\n' 'fi' '# <<< mac-shell-tools <<<'
-  } >> "$stage/next-zshrc" || fail "无法准备主配置：$zshrc"
+    !skipping { print }
+  ' "$1"
 }
 
-# 比较完成后预检所有将变更的目标，尽早发现权限和类型问题。
-# 相同内容无需写权限，也不会新增备份或改变修改时间。
-preflight_write() {
-  check_file "$2"
-  if [ -f "$2" ] && cmp -s "$1" "$2"; then return 0; fi
-  if [ -f "$2" ] && [ ! -w "$2" ]; then fail "文件不可写：$2"; fi
-  target_parent=${2%/*}
-  if [ ! -w "$target_parent" ] || [ ! -x "$target_parent" ]; then
-    fail "目录不可写或无法进入：$target_parent"
+read_installed() {
+  installed_files=
+  check_file "$state_file"
+  if [ -f "$state_file" ]; then
+    while IFS= read -r state_entry || [ -n "$state_entry" ]; do
+      case $state_entry in
+        init.zsh|mst.zsh) fail "管理器或集中入口不能作为工具登记：$state_file" ;;
+        *.zsh) valid_tool_name "${state_entry%.zsh}" || fail "安装清单包含无效工具：$state_file" ;;
+        *) fail "安装清单格式错误：$state_file" ;;
+      esac
+      if contains_file "$installed_files" "$state_entry"; then fail "安装清单重复：$state_file"; fi
+      installed_files="$installed_files $state_entry"
+    done < "$state_file"
+  elif [ -f "$install_directory/init.zsh" ]; then
+    inspect_region "$install_directory/init.zsh" "$init_begin" "$init_end"
+    if [ "$region_state" = absent ]; then fail "入口来源不明，已保留：$install_directory/init.zsh"; fi
+    # 只识别明确的项目注册行，不根据目录中存在同名文件推断所有权。
+    for inferred_file in $tool_files; do
+      registration='    source "$mac_shell_tools_directory/'"$inferred_file"'"'
+      if awk -v begin="$init_begin" -v end="$init_end" -v line="$registration" '
+        $0 == begin { inside = 1; next }
+        $0 == end { inside = 0 }
+        inside && $0 == line { found = 1 }
+        END { exit !found }
+      ' "$install_directory/init.zsh"; then
+        installed_files="$installed_files $inferred_file"
+      fi
+    done
   fi
 }
 
-# 用同目录随机暂存文件和 rename 写入；已有文件先备份并保留权限。
-# 时间戳加 mktemp 后缀使连续更新也不会覆盖旧备份。
+select_files() {
+  selected_files=
+  next_files=$installed_files
+  case $action in
+    install)
+      selection=$tool_files
+      if [ -n "$requested_files" ]; then selection=$requested_files; fi
+      for selected_file in $selection; do
+        contains_file "$tool_files" "$selected_file" || usage_error "此安装器不包含工具：${selected_file%.zsh}"
+        selected_files="$selected_files $selected_file"
+        if ! contains_file "$next_files" "$selected_file"; then next_files="$next_files $selected_file"; fi
+      done
+      ;;
+    update)
+      selection=$installed_files
+      if [ -n "$requested_files" ]; then selection=$requested_files; fi
+      for selected_file in $selection; do
+        contains_file "$installed_files" "$selected_file" || usage_error "工具尚未安装：${selected_file%.zsh}"
+        if contains_file "$tool_files" "$selected_file"; then
+          selected_files="$selected_files $selected_file"
+        elif [ -n "$requested_files" ]; then
+          usage_error "此安装器不包含工具：${selected_file%.zsh}"
+        fi
+      done
+      ;;
+    uninstall)
+      selection=$installed_files
+      if [ -n "$requested_files" ]; then selection=$requested_files; fi
+      for selected_file in $selection; do
+        if ! contains_file "$installed_files" "$selected_file" && ! contains_file "$tool_files" "$selected_file"; then
+          usage_error "未知工具：${selected_file%.zsh}"
+        fi
+        if contains_file "$installed_files" "$selected_file"; then selected_files="$selected_files $selected_file"; fi
+      done
+      next_files=
+      for retained_file in $installed_files; do
+        if ! contains_file "$selected_files" "$retained_file"; then next_files="$next_files $retained_file"; fi
+      done
+      ;;
+    setup|upgrade|list) ;;
+  esac
+}
+
+list_tools() {
+  printf '%-20s %s\n' TOOL STATUS
+  listed_files=$tool_files
+  for listed_file in $installed_files; do
+    if ! contains_file "$listed_files" "$listed_file"; then listed_files="$listed_files $listed_file"; fi
+  done
+  for listed_file in $listed_files; do
+    tool_status='not installed'
+    if contains_file "$installed_files" "$listed_file"; then
+      tool_status=installed
+      if [ ! -f "$install_directory/$listed_file" ]; then tool_status='installed (file missing)'; fi
+      if ! contains_file "$tool_files" "$listed_file"; then tool_status="$tool_status (unavailable in this installer)"; fi
+    fi
+    printf '%-20s %s\n' "${listed_file%.zsh}" "$tool_status"
+  done
+}
+
+# 将下一份清单渲染为集中入口，只替换项目管理区域。
+prepare_init() {
+  {
+    printf '%s\n' "$init_begin" '() {' '  emulate -L zsh'
+    printf '%s\n' '  local mac_shell_tools_directory=${${(%):-%x}:A:h}'
+    printf '%s\n' '  if [[ -f "$mac_shell_tools_directory/.mac-shell-tools/mst.zsh" ]]; then' \
+      '    source "$mac_shell_tools_directory/.mac-shell-tools/mst.zsh"' '  fi'
+    for registered_file in $next_files; do
+      printf '  if [[ -f "$mac_shell_tools_directory/%s" ]]; then\n' "$registered_file"
+      printf '    source "$mac_shell_tools_directory/%s"\n' "$registered_file"
+      printf '%s\n' '  fi'
+    done
+    printf '%s\n' '}' "$init_end"
+  } > "$stage/managed-init"
+  init_source="$stage/init.zsh"
+  if [ -f "$install_directory/init.zsh" ]; then init_source="$install_directory/init.zsh"; fi
+  remove_init=no
+  entry_needed=no
+  if [ -n "$next_files" ] || [ "$keep_manager" = yes ]; then entry_needed=yes; fi
+  if [ "$entry_needed" = no ]; then
+    strip_region "$init_source" "$init_begin" "$init_end" > "$stage/init-outside"
+    strip_region "$stage/init.zsh" "$init_begin" "$init_end" > "$stage/template-outside"
+    if cmp -s "$stage/init-outside" "$stage/template-outside"; then
+      remove_init=yes
+      return
+    fi
+  fi
+  awk -v begin="$init_begin" -v end="$init_end" '
+    NR == FNR { replacement = replacement $0 "\n"; next }
+    $0 == begin { printf "%s", replacement; skipping = 1; next }
+    $0 == end { skipping = 0; next }
+    !skipping { print }
+  ' "$stage/managed-init" "$init_source" > "$stage/next-init.zsh" ||
+    fail "无法合并入口：$install_directory/init.zsh"
+}
+
+prepare_zshrc() {
+  write_zshrc=no
+  existing_zshrc="$stage/empty-zshrc"
+  : > "$existing_zshrc"
+  rc_state=absent
+  if [ -f "$zshrc" ]; then
+    existing_zshrc=$zshrc
+    inspect_region "$zshrc" "$rc_begin" "$rc_end"
+    rc_state=$region_state
+  fi
+  # 管理器及个人工具仍需要入口；卸载工具不能使 mst 入口失效。
+  if [ "$entry_needed" = yes ]; then
+    write_zshrc=yes
+  elif [ "$remove_init" = yes ] && [ "$rc_state" = managed ]; then
+    write_zshrc=yes
+  else
+    return 0
+  fi
+  strip_region "$existing_zshrc" "$rc_begin" "$rc_end" > "$stage/next-zshrc" ||
+    fail "无法准备主配置：$zshrc"
+  if [ "$entry_needed" = yes ]; then
+    quoted_init=$(zsh -f -c 'print -r -- ${(qq)1}' -- "$install_directory/init.zsh") ||
+      fail "无法转义入口路径：$install_directory/init.zsh"
+    {
+      printf '%s\n' "$rc_begin"
+      printf 'if [[ -f %s ]]; then\n' "$quoted_init"
+      printf '  source %s\n' "$quoted_init"
+      printf '%s\n' 'fi' "$rc_end"
+    } >> "$stage/next-zshrc" || fail "无法准备主配置：$zshrc"
+  fi
+}
+
+# 启动器固定工具及主配置的实际位置，不受当前目录或后续环境变化影响。
+prepare_manager() {
+  quoted_core=$(zsh -f -c 'print -r -- ${(qq)1}' -- "$manager_directory/manager-core.sh") || fail '无法转义管理器路径。'
+  quoted_tools=$(zsh -f -c 'print -r -- ${(qq)1}' -- "$install_directory") || fail '无法转义工具路径。'
+  quoted_rc=$(zsh -f -c 'print -r -- ${(qq)1}' -- "$zshrc") || fail '无法转义主配置路径。'
+  {
+    printf '%s\n' '#!/bin/sh' '# mac-shell-tools managed launcher' 'set -eu'
+    printf 'if [ ! -f %s ] || [ -L %s ]; then\n' "$quoted_core" "$quoted_core"
+    printf '%s\n' '  printf "%s\n" "mst: 管理器损坏，请重新运行在线安装命令。" >&2' '  exit 1' 'fi'
+    printf '. %s\n' "$quoted_core"
+    printf '%s\n' 'if [ "$#" -eq 0 ]; then set -- --help; fi'
+    printf 'main %s %s %s %s "$@"\n' "$quoted_core" "''" "$quoted_tools" "$quoted_rc"
+  } > "$stage/mst.sh"
+  /bin/sh -n "$stage/mst.sh" || fail '管理器启动器语法错误。'
+  zsh -f -n "$stage/mst.zsh" || fail 'mst 入口语法错误。'
+  /bin/sh -n "$manager_source" || fail '管理器源码语法错误。'
+}
+
+write_manager() {
+  write_file "$manager_source" "$manager_directory/manager-core.sh"
+  write_file "$stage/mst.sh" "$manager_directory/mst.sh"
+  write_file "$stage/mst.zsh" "$manager_directory/mst.zsh"
+}
+
+# 下载、校验完成前不写配置；清理下载暂存后 exec，避免新会话持有旧锁/文件。
+fetch_release() {
+  command -v curl >/dev/null 2>&1 || fail '在线操作需要系统 curl。'
+  stage=$(mktemp -d "${TMPDIR:-/tmp}/mac-shell-tools-download.XXXXXX") || fail '无法创建下载暂存目录。'
+  release_url='https://raw.githubusercontent.com/bran-nie/mac-shell-tools/main/install.sh'
+  printf '正在获取：%s\n' "$release_url"
+  curl -fsSL --proto '=https' --proto-redir '=https' --connect-timeout 10 --max-time 60 \
+    -o "$stage/release.sh" "$release_url" || fail '下载失败；现有管理器与工具未变更。'
+  if [ ! -s "$stage/release.sh" ]; then fail '下载内容为空；现有文件未变更。'; fi
+  /bin/sh -n "$stage/release.sh" || fail '下载脚本语法错误；现有文件未变更。'
+  if ! awk '$0 == "# mac-shell-tools bootstrap v1" { found = 1 } END { exit !found }' "$stage/release.sh"; then
+    fail '下载内容不是支持的 mac-shell-tools 安装包；现有文件未变更。'
+  fi
+  release_code=$(cat "$stage/release.sh") || fail '无法读取下载脚本。'
+  cleanup
+  trap - 0 HUP INT TERM
+  MAC_SHELL_TOOLS_TARGET_DIRECTORY="$install_directory" MAC_SHELL_TOOLS_TARGET_ZSHRC="$zshrc" \
+    RUNZSH="$run_zsh" exec /bin/sh -c "$release_code" -- "$@"
+}
+
+preflight_target() {
+  check_file "$1"
+  if [ -f "$1" ] && [ ! -w "$1" ]; then fail "文件不可写：$1"; fi
+  target_parent=${1%/*}
+  if [ ! -w "$target_parent" ] || [ ! -x "$target_parent" ]; then fail "目录不可写或无法进入：$target_parent"; fi
+}
+
+preflight_write() {
+  check_file "$2"
+  if [ -f "$2" ] && cmp -s "$1" "$2"; then return; fi
+  preflight_target "$2"
+}
+
+backup_file() {
+  if [ ! -f "$1" ]; then return; fi
+  stamp=$(date '+%Y%m%d-%H%M%S') || fail "无法生成备份时间：$1"
+  backup=$(mktemp "$1.bak.$stamp.XXXXXX") || fail "无法创建备份：$1"
+  if ! cp -p "$1" "$backup"; then
+    rm -f "$backup"
+    fail "无法备份：$1"
+  fi
+  printf '已备份：%s\n' "$backup"
+}
+
 write_file() {
   prepared=$1
   target=$2
   check_file "$target"
-  if [ -f "$target" ] && cmp -s "$prepared" "$target"; then return 0; fi
-  if [ -f "$target" ]; then
-    stamp=$(date '+%Y%m%d-%H%M%S') || fail "无法生成备份时间：$target"
-    backup=$(mktemp "$target.bak.$stamp.XXXXXX") || fail "无法创建备份：$target"
-    if ! cp -p "$target" "$backup"; then
-      rm -f "$backup"
-      fail "无法备份：$target"
-    fi
-    printf '已备份：%s\n' "$backup"
-  fi
-  pending_file=$(mktemp "${target%/*}/.mac-shell-tools.XXXXXX") ||
-    fail "无法创建同目录暂存文件：$target"
-  if [ -f "$target" ]; then
-    cp -p "$target" "$pending_file" || fail "无法保留文件属性：$target"
-  fi
+  if [ -f "$target" ] && cmp -s "$prepared" "$target"; then return; fi
+  backup_file "$target"
+  pending_file=$(mktemp "${target%/*}/.mac-shell-tools.XXXXXX") || fail "无法创建同目录暂存文件：$target"
+  if [ -f "$target" ]; then cp -p "$target" "$pending_file" || fail "无法保留文件属性：$target"; fi
   cat "$prepared" > "$pending_file" || fail "写入失败（请检查权限及剩余空间）：$target"
   check_file "$target"
   mv -f "$pending_file" "$target" || fail "无法替换文件：$target"
   pending_file=
-  printf '已安装：%s\n' "$target"
+  changes_made=1
+  printf '已写入：%s\n' "$target"
 }
 
-# 先验证平台、所有暂存内容和目标，再按工具、入口、主配置顺序落盘。
-# 子进程只提供启用命令，不声称改变调用者当前的 Shell。
+remove_file() {
+  check_file "$1"
+  if [ ! -f "$1" ]; then return; fi
+  backup_file "$1"
+  rm "$1" || fail "无法删除文件：$1"
+  changes_made=1
+  printf '已卸载：%s\n' "$1"
+}
+
+finish() {
+  # exec 前显式释放锁和暂存目录；成功替换进程后不会再运行 EXIT trap。
+  cleanup
+  trap - 0 HUP INT TERM
+  if [ "$changes_made" -eq 0 ]; then printf '%s\n' '没有需要变更的文件。'; return; fi
+  printf '\n%s\n' '操作完成。'
+  should_start_zsh=no
+  # 管道或输出重定向用于脚本执行，只有完整交互终端才自动进入新会话。
+  if [ "$run_zsh" = yes ] && [ -t 0 ] && [ -t 1 ]; then should_start_zsh=yes; fi
+  case $should_start_zsh in
+    yes)
+      printf '%s\n' '即将在当前终端启动新的 Zsh 登录会话；退出后可能回到原会话。'
+      ZDOTDIR="$zdot_directory" exec zsh -l
+      ;;
+    no)
+      case $action in
+        setup|install|update|upgrade)
+          quoted_init=$(zsh -f -c 'print -r -- ${(qq)1}' -- "$install_directory/init.zsh") ||
+            fail '无法生成启用命令。'
+          printf '%s\n' '请重新打开终端，或在当前 Zsh 执行：'
+          printf '  source %s\n' "$quoted_init"
+          ;;
+        uninstall)
+          printf '%s\n' '请重新打开终端，或执行 exec zsh -l；已有会话中的函数不会自动清除。'
+          ;;
+      esac
+      ;;
+  esac
+}
+
 main() {
-  for dependency in uname zsh du sort tail mkdir mktemp cat awk cmp cp mv date rm rmdir; do
+  manager_source=$1
+  owned_bootstrap_directory=$2
+  pinned_tools=$3
+  pinned_rc=$4
+  shift 4
+  invocation_mode=installed
+  if [ -n "$owned_bootstrap_directory" ]; then invocation_mode=bootstrap; fi
+  parse_arguments "$@"
+  for dependency in uname zsh mkdir mktemp cat awk cmp cp mv date rm rmdir; do
     command -v "$dependency" >/dev/null 2>&1 || fail "缺少基础命令：$dependency"
   done
   platform=$(uname -s) || fail '无法识别操作系统。'
-  case $platform in
-    Darwin) ;;
-    *) fail '当前版本仅支持 macOS。' ;;
-  esac
+  case $platform in Darwin) ;; *) fail '当前版本仅支持 macOS。' ;; esac
   require_absolute HOME "${HOME:-}"
-  config_home=${XDG_CONFIG_HOME:-$HOME/.config}
-  zdot_directory=${ZDOTDIR:-$HOME}
-  require_absolute XDG_CONFIG_HOME "$config_home"
-  require_absolute ZDOTDIR "$zdot_directory"
-  install_directory="$config_home/zsh/tools"
-  zshrc="$zdot_directory/.zshrc"
-
+  # 已安装启动器的固定位置优先；在线委托也必须回到同一套配置。
+  if [ -z "$pinned_tools" ]; then
+    pinned_tools=${MAC_SHELL_TOOLS_TARGET_DIRECTORY:-}
+    pinned_rc=${MAC_SHELL_TOOLS_TARGET_ZSHRC:-}
+  fi
+  if [ -n "$pinned_tools" ] || [ -n "$pinned_rc" ]; then
+    require_absolute 工具目录 "$pinned_tools"
+    require_absolute 主配置 "$pinned_rc"
+    install_directory=$pinned_tools
+    zshrc=$pinned_rc
+    zdot_directory=${zshrc%/*}
+  else
+    config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+    zdot_directory=${ZDOTDIR:-$HOME}
+    require_absolute XDG_CONFIG_HOME "$config_home"
+    require_absolute ZDOTDIR "$zdot_directory"
+    install_directory="$config_home/zsh/tools"
+    zshrc="$zdot_directory/.zshrc"
+  fi
+  state_file="$install_directory/.mac-shell-tools-installed"
+  manager_directory="$install_directory/.mac-shell-tools"
   if [ -L "$install_directory" ]; then fail "工具目录是符号链接，已保留：$install_directory"; fi
-  for target in "$install_directory/init.zsh" "$zshrc"; do check_file "$target"; done
-  for tool_file in $tool_files; do check_file "$install_directory/$tool_file"; done
-  mkdir -p "$install_directory" "$zdot_directory" ||
-    fail "无法创建配置目录：$install_directory 或 $zdot_directory"
-  install_directory=$(CDPATH= cd -P "$install_directory" && pwd) || fail "无法进入工具目录：$install_directory"
-  zdot_directory=$(CDPATH= cd -P "$zdot_directory" && pwd) || fail "无法进入配置目录：$zdot_directory"
-  zshrc="$zdot_directory/.zshrc"
-  lock_directory="$install_directory/.mac-shell-tools-install.lock"
-  mkdir "$lock_directory" 2>/dev/null ||
-    fail "无法取得安装锁（另一个安装可能仍在运行，请确认后手动处理）：$lock_directory"
-  has_lock=1
-  stage=$(mktemp -d "${TMPDIR:-/tmp}/mac-shell-tools-install.XXXXXX") || fail '无法创建安装暂存目录。'
-  write_payload || fail "无法准备内嵌工具：$stage"
+  if [ -L "$manager_directory" ]; then fail "管理器目录是符号链接，已保留：$manager_directory"; fi
+  check_file "$install_directory/init.zsh"
+  check_file "$zshrc"
+  read_installed
 
+  case $invocation_mode in
+    installed)
+      case $action in
+        install|upgrade) fetch_release "$@" ;;
+        update)
+          for checked_file in $requested_files; do
+            contains_file "$installed_files" "$checked_file" || usage_error "工具尚未安装：${checked_file%.zsh}"
+          done
+          if [ -z "$installed_files" ]; then printf '%s\n' '尚未安装工具，无需更新。'; return 0; fi
+          fetch_release "$@"
+          ;;
+        setup|uninstall|list) ;;
+      esac
+      ;;
+    bootstrap) ;;
+  esac
+
+  select_files
+  write_manager_runtime=no
+  case $action in
+    list) list_tools; return 0 ;;
+    setup|upgrade) write_manager_runtime=yes ;;
+    install) write_manager_runtime=yes ;;
+    update|uninstall)
+      if [ -z "$selected_files" ]; then printf '%s\n' '没有可处理的工具；可运行 mst list 查看状态。'; return 0; fi
+      ;;
+  esac
+  keep_manager=no
+  # 管理入口是独立组件：安装/升级会写入，卸载全部工具时也继续保留。
+  if [ "$write_manager_runtime" = yes ] || [ -f "$manager_directory/manager-core.sh" ]; then keep_manager=yes; fi
+  for checked_file in $selected_files; do check_file "$install_directory/$checked_file"; done
+  if [ "$write_manager_runtime" = yes ]; then
+    for manager_file in manager-core.sh mst.sh mst.zsh; do check_file "$manager_directory/$manager_file"; done
+  fi
   if [ -f "$install_directory/init.zsh" ]; then
-    inspect_region "$install_directory/init.zsh" \
-      '# >>> mac-shell-tools managed tools >>>' '# <<< mac-shell-tools managed tools <<<'
-    if [ "$region_state" = absent ]; then
-      fail "入口来源不明，不覆盖现有文件，请手动处理：$install_directory/init.zsh"
-    fi
-    merge_init
-  else
-    cp "$stage/init.zsh" "$stage/next-init.zsh" || fail '无法准备集中入口。'
+    inspect_region "$install_directory/init.zsh" "$init_begin" "$init_end"
+    if [ "$region_state" = absent ]; then fail "入口来源不明，已保留：$install_directory/init.zsh"; fi
   fi
-  if [ -f "$zshrc" ]; then
-    inspect_region "$zshrc" '# >>> mac-shell-tools >>>' '# <<< mac-shell-tools <<<'
-    existing_zshrc=$zshrc
-  else
-    : > "$stage/empty-zshrc"
-    existing_zshrc="$stage/empty-zshrc"
-  fi
+  mkdir -p "$install_directory" "$zdot_directory" || fail '无法创建配置目录。'
+  install_directory=$(CDPATH= cd -P "$install_directory" && pwd) || fail '无法进入工具目录。'
+  zdot_directory=$(CDPATH= cd -P "$zdot_directory" && pwd) || fail '无法进入配置目录。'
+  zshrc="$zdot_directory/.zshrc"
+  state_file="$install_directory/.mac-shell-tools-installed"
+  manager_directory="$install_directory/.mac-shell-tools"
+  lock_directory="$install_directory/.mac-shell-tools-install.lock"
+  mkdir "$lock_directory" 2>/dev/null || fail "无法取得安装锁（请确认其他操作已结束后再手动处理）：$lock_directory"
+  has_lock=1
+  read_installed
+  select_files
+  if [ "$write_manager_runtime" = yes ]; then mkdir -p "$manager_directory" || fail '无法创建管理器目录。'; fi
+  stage=$(mktemp -d "${TMPDIR:-/tmp}/mac-shell-tools-install.XXXXXX") || fail '无法创建暂存目录。'
+  write_payload || fail "无法准备内嵌工具：$stage"
+  if [ "$write_manager_runtime" = yes ]; then prepare_manager; fi
+  prepare_init
   prepare_zshrc
-  zsh -f -n "$stage/next-init.zsh" || fail "入口语法检查失败，未写入：$install_directory/init.zsh"
-  zsh -f -n "$stage/next-zshrc" || fail "主配置语法检查失败，未写入：$zshrc"
-  for tool_file in $tool_files; do
-    zsh -f -n "$stage/$tool_file" || fail "工具语法检查失败：$tool_file"
-    preflight_write "$stage/$tool_file" "$install_directory/$tool_file"
-  done
-  preflight_write "$stage/next-init.zsh" "$install_directory/init.zsh"
-  preflight_write "$stage/next-zshrc" "$zshrc"
+  : > "$stage/next-state"
+  for recorded_file in $next_files; do printf '%s\n' "$recorded_file" >> "$stage/next-state"; done
 
-  for tool_file in $tool_files; do write_file "$stage/$tool_file" "$install_directory/$tool_file"; done
-  write_file "$stage/next-init.zsh" "$install_directory/init.zsh"
-  write_file "$stage/next-zshrc" "$zshrc"
-
-  quoted_zshrc=$(zsh -f -c 'print -r -- ${(qq)1}' -- "$zshrc") || fail '无法生成启用命令。'
-  printf '\n%s\n' '安装完成。请重新打开终端，或在当前 Zsh 执行：'
-  printf '  source %s\n' "$quoted_zshrc"
-  printf '%s\n' '随后可运行 dsize --help。补全需在 Oh My Zsh / compinit 初始化后加载。'
+  case $remove_init in
+    yes) preflight_target "$install_directory/init.zsh" ;;
+    no)
+      zsh -f -n "$stage/next-init.zsh" || fail '入口语法检查失败，未写入。'
+      preflight_write "$stage/next-init.zsh" "$install_directory/init.zsh"
+      ;;
+  esac
+  if [ "$write_zshrc" = yes ]; then
+    zsh -f -n "$stage/next-zshrc" || fail "主配置语法检查失败，未写入：$zshrc"
+    preflight_write "$stage/next-zshrc" "$zshrc"
+  fi
+  if [ "$write_manager_runtime" = yes ]; then
+    preflight_write "$manager_source" "$manager_directory/manager-core.sh"
+    preflight_write "$stage/mst.sh" "$manager_directory/mst.sh"
+    preflight_write "$stage/mst.zsh" "$manager_directory/mst.zsh"
+  fi
+  case $action in
+    setup|upgrade) ;;
+    install|update|uninstall)
+      if [ -n "$next_files" ]; then preflight_write "$stage/next-state" "$state_file"; else preflight_target "$state_file"; fi
+      ;;
+  esac
+  case $action in
+    setup|upgrade)
+      write_manager
+      write_file "$stage/next-init.zsh" "$install_directory/init.zsh"
+      if [ "$write_zshrc" = yes ]; then write_file "$stage/next-zshrc" "$zshrc"; fi
+      ;;
+    install|update)
+      for checked_file in $selected_files; do
+        zsh -f -n "$stage/$checked_file" || fail "工具语法检查失败：$checked_file"
+        preflight_write "$stage/$checked_file" "$install_directory/$checked_file"
+      done
+      if [ "$write_manager_runtime" = yes ]; then write_manager; fi
+      for written_file in $selected_files; do write_file "$stage/$written_file" "$install_directory/$written_file"; done
+      write_file "$stage/next-state" "$state_file"
+      write_file "$stage/next-init.zsh" "$install_directory/init.zsh"
+      if [ "$write_zshrc" = yes ]; then write_file "$stage/next-zshrc" "$zshrc"; fi
+      ;;
+    uninstall)
+      for checked_file in $selected_files; do preflight_target "$install_directory/$checked_file"; done
+      case $remove_init in
+        yes) remove_file "$install_directory/init.zsh" ;;
+        no) write_file "$stage/next-init.zsh" "$install_directory/init.zsh" ;;
+      esac
+      if [ "$write_zshrc" = yes ]; then write_file "$stage/next-zshrc" "$zshrc"; fi
+      for removed_file in $selected_files; do remove_file "$install_directory/$removed_file"; done
+      if [ -n "$next_files" ]; then write_file "$stage/next-state" "$state_file"; else remove_file "$state_file"; fi
+      ;;
+  esac
+  finish
 }

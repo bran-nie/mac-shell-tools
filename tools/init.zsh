@@ -5,6 +5,9 @@
 () {
   emulate -L zsh
   local mac_shell_tools_directory=${${(%):-%x}:A:h}
+  if [[ -f "$mac_shell_tools_directory/.mac-shell-tools/mst.zsh" ]]; then
+    source "$mac_shell_tools_directory/.mac-shell-tools/mst.zsh"
+  fi
   if [[ -f "$mac_shell_tools_directory/dsize.zsh" ]]; then
     source "$mac_shell_tools_directory/dsize.zsh"
   fi
