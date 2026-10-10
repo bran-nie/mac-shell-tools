@@ -16,7 +16,9 @@ copy_package() {
     "$package_source/scripts/bootstrap.sh.in" "$package_source/scripts/tools.list" "$package_target/scripts/"
   cp "$package_source/lib/mst.zsh" "$package_source/lib/i18n.sh" "$package_target/lib/"
   cp "$package_source/tools/init.zsh" "$package_target/tools/"
-  cp -R "$package_source/tools/dsize" "$package_target/tools/"
+  for package_tool in $(cat "$package_source/scripts/tools.list"); do
+    cp -R "$package_source/tools/${package_tool%.zsh}" "$package_target/tools/"
+  done
   cp -R "$package_source/locales" "$package_target/"
   cp "$package_source/LICENSE" "$package_source/VERSION" "$package_target/"
 }

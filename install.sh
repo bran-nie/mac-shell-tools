@@ -20,10 +20,10 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-# Package version: 0.1.0-dev+56a073aed4d3
-# Source revision: 46223e78332d8291dfb25e6dfd30cd652c8a9206
-# Source state: clean
-# Source digest: 56a073aed4d33951cb1ce7abf48851241e22baab4a41771192836198d0802533
+# Package version: 0.1.0-dev+aa6b7320aaee
+# Source revision: 02d9250c9833bf19772b5d41ebec70d8b5883f61
+# Source state: modified
+# Source digest: aa6b7320aaee0b998e284770631d95a612ee3b005dcdcc4fd87f9484ee997c89
 # mac-shell-tools bootstrap v1
 # 自包含引导脚本：先展开共享管理器，再在当前进程中执行。
 set -eu
@@ -307,9 +307,9 @@ RUNZSH=no 也可关闭新的登录会话。
   esac
 }
 
-package_version='0.1.0-dev+56a073aed4d3'
-package_revision='46223e78332d8291dfb25e6dfd30cd652c8a9206'
-package_state='clean'
+package_version='0.1.0-dev+aa6b7320aaee'
+package_revision='02d9250c9833bf19772b5d41ebec70d8b5883f61'
+package_state='modified'
 # mac-shell-tools 共享管理器；引导安装与常驻 mst 共用此实现。
 # 由生成脚本打包运行时源码，管理器始终从文件加载。
 set -eu
@@ -1264,6 +1264,16 @@ if [ -z "${ZSH_VERSION-}" ]; then return 0; fi
   elif [[ -f "$mac_shell_tools_directory/dsize/dsize.zsh" ]]; then
     source "$mac_shell_tools_directory/dsize/dsize.zsh"
   fi
+  if [[ -f "$mac_shell_tools_directory/tools/portwho/portwho.zsh" ]]; then
+    source "$mac_shell_tools_directory/tools/portwho/portwho.zsh"
+  elif [[ -f "$mac_shell_tools_directory/portwho/portwho.zsh" ]]; then
+    source "$mac_shell_tools_directory/portwho/portwho.zsh"
+  fi
+  if [[ -f "$mac_shell_tools_directory/tools/extract/extract.zsh" ]]; then
+    source "$mac_shell_tools_directory/tools/extract/extract.zsh"
+  elif [[ -f "$mac_shell_tools_directory/extract/extract.zsh" ]]; then
+    source "$mac_shell_tools_directory/extract/extract.zsh"
+  fi
 }
 # <<< mac-shell-tools managed tools <<<
 
@@ -1573,7 +1583,7 @@ _mac_shell_tools_dsize_help() {
 # Values are embedded when building the package, so --version describes the
 # function actually loaded in this session even if its on-disk file was updated.
 _mac_shell_tools_dsize_version() {
-  local version='0.1.0-dev+56a073aed4d3' revision='46223e78332d8291dfb25e6dfd30cd652c8a9206' source_state='clean'
+  local version='0.1.0-dev+aa6b7320aaee' revision='02d9250c9833bf19772b5d41ebec70d8b5883f61' source_state='modified'
   case $version in @*) version=development; revision=unbuilt; source_state=unknown ;; esac
   print -r -- "dsize $version ($revision; $source_state)"
 }
@@ -1745,9 +1755,9 @@ fi
 MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
   mkdir -p "$stage/payload/tools/dsize" || return 1
   cat > "$stage/payload/tools/dsize/version" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
-0.1.0-dev+56a073aed4d3
-46223e78332d8291dfb25e6dfd30cd652c8a9206
-clean
+0.1.0-dev+aa6b7320aaee
+02d9250c9833bf19772b5d41ebec70d8b5883f61
+modified
 MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
   mkdir -p "$stage/payload/tools/dsize" || return 1
   cat > "$stage/payload/tools/dsize/i18n.sh" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
@@ -1894,9 +1904,692 @@ i18n.sh
 locales/en.sh
 locales/zh-CN.sh
 MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
+  mkdir -p "$stage/payload/tools/portwho" || return 1
+  cat > "$stage/payload/tools/portwho/portwho.zsh" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
+# Query visible TCP listeners without changing processes or the caller's shell.
+_mac_shell_tools_portwho_language() (
+  emulate -L zsh
+  local component_directory=${${(%):-%x}:A:h}
+  local common="$component_directory/i18n.sh"
+  if [[ ! -f $common ]]; then common="$component_directory/../../lib/i18n.sh"; fi
+  source "$common" || return 1
+  mst_resolve_language "$component_directory/../../config.conf" "${MST_LANG:-}"
+)
+
+_mac_shell_tools_portwho_message() (
+  emulate -L zsh
+  local component_directory=${${(%):-%x}:A:h}
+  local common="$component_directory/i18n.sh"
+  if [[ ! -f $common ]]; then common="$component_directory/../../lib/i18n.sh"; fi
+  source "$common" || return 1
+  source "$component_directory/locales/en.sh" || return 1
+  unfunction mst_text_zh_CN 2>/dev/null || true
+  if [[ ${portwho_language:-en} == zh-CN && -f "$component_directory/locales/zh-CN.sh" ]]; then
+    source "$component_directory/locales/zh-CN.sh" || return 1
+  fi
+  case $1 in error.*) printf 'portwho: ' ;; esac
+  mst_print_message "${portwho_language:-en}" "$@"
+)
+
+_mac_shell_tools_portwho_version() {
+  local version='0.1.0-dev+aa6b7320aaee' revision='02d9250c9833bf19772b5d41ebec70d8b5883f61' source_state='modified'
+  case $version in @*) version=development; revision=unbuilt; source_state=unknown ;; esac
+  print -r -- "portwho $version ($revision; $source_state)"
 }
 
-tool_files=' dsize.zsh'
+portwho() (
+  emulate -L zsh
+  setopt extendedglob
+  local portwho_language value dependency query_directory query_status selector=-iTCP
+  local parse_options=1
+  local -a ports
+  portwho_language=$(_mac_shell_tools_portwho_language) || return 2
+  while (( $# )); do
+    if (( parse_options )); then
+      case $1 in
+        -h|--help) _mac_shell_tools_portwho_message help; return 0 ;;
+        -V|--version) _mac_shell_tools_portwho_version; return 0 ;;
+        --) parse_options=0; shift; continue ;;
+        -*) _mac_shell_tools_portwho_message error.option "$1" >&2; return 2 ;;
+      esac
+    fi
+    value=$1
+    if [[ -z $value || $value == *[^0-9]* ]]; then
+      _mac_shell_tools_portwho_message error.port "$value" >&2
+      return 2
+    fi
+    # Bound the normalized decimal string before arithmetic to avoid overflow.
+    value=${value##0#}
+    value=${value:-0}
+    if (( ${#value} > 5 )) || (( value < 1 || value > 65535 )); then
+      _mac_shell_tools_portwho_message error.port "$1" >&2
+      return 2
+    fi
+    ports+=( "$value" )
+    shift
+  done
+  ports=( "${(@u)ports}" )
+  if (( ${#ports} )); then selector="-iTCP:${(j:,:)ports}"; fi
+  for dependency in lsof mktemp rm cat; do
+    if ! command -v "$dependency" >/dev/null 2>&1; then
+      _mac_shell_tools_portwho_message error.dependency "$dependency" >&2
+      return 1
+    fi
+  done
+  umask 077
+  query_directory=$(command mktemp -d "${TMPDIR:-/tmp}/mst-portwho.XXXXXX") || {
+    _mac_shell_tools_portwho_message error.temporary >&2
+    return 1
+  }
+  trap 'command rm -rf -- "$query_directory"' EXIT
+  trap '_mac_shell_tools_portwho_message error.interrupted >&2; exit 1' HUP INT TERM
+  # lsof selections are OR by default; -a keeps both TCP and LISTEN required.
+  command lsof -nP +c 0 -a "$selector" -sTCP:LISTEN \
+    > "$query_directory/out" 2> "$query_directory/err"
+  query_status=$?
+  if [[ -s "$query_directory/out" ]]; then command cat "$query_directory/out"; fi
+  if [[ -s "$query_directory/err" ]]; then
+    command cat "$query_directory/err" >&2
+    _mac_shell_tools_portwho_message error.query >&2
+    return 1
+  fi
+  case $query_status in
+    0)
+      if [[ ! -s "$query_directory/out" ]]; then _mac_shell_tools_portwho_message empty; fi
+      ;;
+    1)
+      # lsof uses 1 for an empty selection too. Do not declare the port free.
+      if [[ -s "$query_directory/out" ]]; then
+        _mac_shell_tools_portwho_message error.query >&2
+        return 1
+      fi
+      _mac_shell_tools_portwho_message empty
+      ;;
+    *) _mac_shell_tools_portwho_message error.query >&2; return 1 ;;
+  esac
+)
+
+_portwho() {
+  setopt localoptions
+  local portwho_language help_description version_description port_label
+  portwho_language=$(_mac_shell_tools_portwho_language) || return 2
+  help_description=$(_mac_shell_tools_portwho_message completion.help)
+  version_description=$(_mac_shell_tools_portwho_message completion.version)
+  port_label=$(_mac_shell_tools_portwho_message completion.port)
+  _arguments -S \
+    "(-h --help)-h[$help_description]" \
+    "(-h --help)--help[$help_description]" \
+    "(-V --version)-V[$version_description]" \
+    "(-V --version)--version[$version_description]" \
+    "*:$port_label:(22 80 443 3000 5432 6379 8000 8080 9000)"
+}
+
+if (( $+functions[compdef] )); then
+  compdef _portwho portwho
+fi
+MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
+  mkdir -p "$stage/payload/tools/portwho" || return 1
+  cat > "$stage/payload/tools/portwho/version" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
+0.1.0-dev+aa6b7320aaee
+02d9250c9833bf19772b5d41ebec70d8b5883f61
+modified
+MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
+  mkdir -p "$stage/payload/tools/portwho" || return 1
+  cat > "$stage/payload/tools/portwho/i18n.sh" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
+# Shared POSIX sh language helpers. Configuration is read as data, never sourced.
+mst_resolve_language() (
+  settings=$1
+  override=$2
+  chosen=en
+  if [ -n "$override" ]; then
+    chosen=$override
+  elif [ -e "$settings" ] || [ -L "$settings" ]; then
+    if [ ! -f "$settings" ] || [ -L "$settings" ]; then
+      printf 'mst: Invalid language configuration: %s\n' "$settings" >&2
+      return 2
+    fi
+    seen=no
+    while IFS= read -r line || [ -n "$line" ]; do
+      case $line in
+        ''|'#'*) ;;
+        language=*)
+          if [ "$seen" = yes ]; then printf 'mst: Duplicate language setting: %s\n' "$settings" >&2; return 2; fi
+          chosen=${line#language=}; seen=yes ;;
+        *) printf 'mst: Invalid language configuration: %s\n' "$settings" >&2; return 2 ;;
+      esac
+    done < "$settings"
+  fi
+  case $chosen in
+    en|zh-CN) printf '%s\n' "$chosen" ;;
+    *) printf 'mst: Unsupported language: %s (use en or zh-CN).\n' "$chosen" >&2; return 2 ;;
+  esac
+)
+
+# Catalogs return fixed printf formats. Arguments are passed separately, without eval.
+mst_print_message() (
+  chosen_language=$1
+  message_key=$2
+  shift 2
+  format=$(mst_text_en "$message_key") || {
+    printf 'mst: Unknown message key: %s\n' "$message_key" >&2
+    return 1
+  }
+  case $chosen_language in
+    en) ;;
+    zh-CN)
+      if command -v mst_text_zh_CN >/dev/null 2>&1; then
+        translated=$(mst_text_zh_CN "$message_key") && format=$translated
+      fi
+      ;;
+  esac
+  printf "$format\n" "$@"
+)
+MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
+  mkdir -p "$stage/payload/tools/portwho/locales" || return 1
+  cat > "$stage/payload/tools/portwho/locales/en.sh" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
+# mst_text_en message catalog.
+mst_text_en() {
+  case $1 in
+    help) printf '%s\n' 'Usage: portwho [port ...] [options]
+
+Show visible TCP listeners with lsof: program, PID, user, and listen address.
+With no ports, list all visible TCP listeners. UDP is not included.
+
+  port              One or more decimal ports, 1–65535
+  -V, --version     Show the loaded tool version
+  -h, --help        Show help
+  --                Stop parsing options
+
+Examples: portwho 3000; portwho 80 443; portwho
+Leading zeros are decimal; duplicate ports are queried once.
+Results are limited by current permissions; no result does not prove a port free.
+Output uses native lsof columns. No processes are stopped; sudo is never run.
+Exit codes: 0 results/no visible match/help, 2 invalid input, 1 query failure.' ;;
+    empty) printf '%s\n' 'No visible TCP listeners matched. Results are limited by current permissions; this does not prove the ports are free.' ;;
+    error.option) printf '%s\n' 'Unknown option: %s' ;;
+    error.port) printf '%s\n' 'Invalid port: %s (use a decimal integer from 1 to 65535).' ;;
+    error.dependency) printf '%s\n' 'Required command is missing: %s' ;;
+    error.temporary) printf '%s\n' 'Could not create a temporary directory.' ;;
+    error.query) printf '%s\n' 'lsof failed or reported incomplete results.' ;;
+    error.interrupted) printf '%s\n' 'Query interrupted; results may be incomplete.' ;;
+    completion.help) printf '%s\n' 'Show help' ;;
+    completion.version) printf '%s\n' 'Show version' ;;
+    completion.port) printf '%s\n' 'TCP port' ;;
+    *) return 1 ;;
+  esac
+}
+MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
+  mkdir -p "$stage/payload/tools/portwho/locales" || return 1
+  cat > "$stage/payload/tools/portwho/locales/zh-CN.sh" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
+# mst_text_zh_CN message catalog.
+mst_text_zh_CN() {
+  case $1 in
+    help) printf '%s\n' '用法：portwho [端口 ...] [选项]
+
+使用 lsof 查看可见的 TCP 监听信息：程序、PID、用户及监听地址。
+不指定端口时列出所有可见的 TCP 监听。不包含 UDP。
+
+  端口              一个或多个十进制端口，1–65535
+  -V, --version     显示已加载的工具版本
+  -h, --help        显示帮助
+  --                停止解析选项
+
+示例：portwho 3000；portwho 80 443；portwho
+前导零按十进制处理，重复端口只查询一次。
+结果受当前权限限制，无结果不能证明端口空闲。
+保留 lsof 原生表格，不终止进程，不自动执行 sudo。
+退出码：0 有结果/无可见匹配/帮助，2 参数错误，1 查询失败。' ;;
+    empty) printf '%s\n' '没有匹配的可见 TCP 监听。结果受当前权限限制，不能据此证明端口空闲。' ;;
+    error.option) printf '%s\n' '未知选项：%s' ;;
+    error.port) printf '%s\n' '无效端口：%s（请输入 1–65535 的十进制整数）。' ;;
+    error.dependency) printf '%s\n' '缺少必要命令：%s' ;;
+    error.temporary) printf '%s\n' '无法创建临时目录。' ;;
+    error.query) printf '%s\n' 'lsof 执行失败或报告结果不完整。' ;;
+    error.interrupted) printf '%s\n' '查询已中断，结果可能不完整。' ;;
+    completion.help) printf '%s\n' '显示帮助' ;;
+    completion.version) printf '%s\n' '显示版本' ;;
+    completion.port) printf '%s\n' 'TCP 端口' ;;
+    *) return 1 ;;
+  esac
+}
+MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
+  mkdir -p "$stage/payload/tools/portwho" || return 1
+  cat > "$stage/payload/tools/portwho/files.list" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
+portwho.zsh
+version
+i18n.sh
+locales/en.sh
+locales/zh-CN.sh
+MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
+  mkdir -p "$stage/payload/tools/extract" || return 1
+  cat > "$stage/payload/tools/extract/extract.zsh" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
+# Extract one archive into a new directory; loading and completion do no I/O on archives.
+_mac_shell_tools_extract_language() (
+  emulate -L zsh
+  local component_directory=${${(%):-%x}:A:h}
+  local common="$component_directory/i18n.sh"
+  if [[ ! -f $common ]]; then common="$component_directory/../../lib/i18n.sh"; fi
+  source "$common" || return 1
+  mst_resolve_language "$component_directory/../../config.conf" "${MST_LANG:-}"
+)
+
+_mac_shell_tools_extract_message() (
+  emulate -L zsh
+  local component_directory=${${(%):-%x}:A:h}
+  local common="$component_directory/i18n.sh"
+  if [[ ! -f $common ]]; then common="$component_directory/../../lib/i18n.sh"; fi
+  source "$common" || return 1
+  source "$component_directory/locales/en.sh" || return 1
+  unfunction mst_text_zh_CN 2>/dev/null || true
+  if [[ ${extract_language:-en} == zh-CN && -f "$component_directory/locales/zh-CN.sh" ]]; then
+    source "$component_directory/locales/zh-CN.sh" || return 1
+  fi
+  case $1 in error.*) printf 'extract: ' ;; esac
+  mst_print_message "${extract_language:-en}" "$@"
+)
+
+_mac_shell_tools_extract_version() {
+  local version='0.1.0-dev+aa6b7320aaee' revision='02d9250c9833bf19772b5d41ebec70d8b5883f61' source_state='modified'
+  case $version in @*) version=development; revision=unbuilt; source_state=unknown ;; esac
+  print -r -- "extract $version ($revision; $source_state)"
+}
+
+# A conservative portable check, followed by native tar/unzip path protections.
+# Links and special entries are rejected separately, before creating output.
+_mac_shell_tools_extract_paths() {
+  emulate -L zsh
+  local entry normalized
+  while IFS= read -r entry || [[ -n $entry ]]; do
+    normalized=$entry
+    case $archive_kind in
+      zip) normalized=${normalized//\\//} ;;
+      tar) ;;
+    esac
+    case $normalized in
+      /*|[a-zA-Z]:*|..|../*|*/..|*/../*)
+        _mac_shell_tools_extract_message error.path "$entry" >&2
+        return 2
+        ;;
+    esac
+    if [[ -z $entry || $entry == *[[:cntrl:]]* ]]; then
+      _mac_shell_tools_extract_message error.path "$entry" >&2
+      return 2
+    fi
+  done < "$1"
+}
+
+_mac_shell_tools_extract_types() {
+  emulate -L zsh
+  local entry
+  local -a fields
+  while IFS= read -r entry || [[ -n $entry ]]; do
+    case "$archive_kind:${entry[1]}" in
+      tar:-|tar:d|zip:-|zip:d) ;;
+      # ZIP writers can omit Unix file-type bits; unzip treats these as files.
+      zip:\?) ;;
+      *) _mac_shell_tools_extract_message error.type >&2; return 2 ;;
+    esac
+    case $archive_kind in
+      zip)
+        # ZipInfo's fifth column uses T/B for encrypted entries and t/b otherwise.
+        # Reject before unpacking so an interactive unzip cannot ask for a password.
+        fields=( ${=entry} )
+        case ${fields[5]-} in
+          [TB]*) _mac_shell_tools_extract_message error.encrypted >&2; return 2 ;;
+          [tb][-lxX]) ;;
+          *) _mac_shell_tools_extract_message error.type >&2; return 2 ;;
+        esac
+        ;;
+      tar) ;;
+    esac
+  done < "$1"
+}
+
+extract() (
+  emulate -L zsh
+  local extract_language archive='' destination='' archive_kind archive_name base_name lower_name
+  local has_archive=0 has_destination=0 list_only=0 parse_options=1
+  local dependency temporary_directory snapshot listing_status output_created=0
+  local -a dependencies
+  extract_language=$(_mac_shell_tools_extract_language) || return 2
+  while (( $# )); do
+    if (( parse_options )); then
+      case $1 in
+        -h|--help) _mac_shell_tools_extract_message help; return 0 ;;
+        -V|--version) _mac_shell_tools_extract_version; return 0 ;;
+        -l|--list) list_only=1; shift; continue ;;
+        -C|--directory)
+          if (( $# < 2 )) || [[ -z $2 ]]; then
+            _mac_shell_tools_extract_message error.value "$1" >&2
+            return 2
+          fi
+          destination=$2; has_destination=1; shift 2; continue
+          ;;
+        --directory=*)
+          destination=${1#*=}; has_destination=1
+          if [[ -z $destination ]]; then
+            _mac_shell_tools_extract_message error.value --directory >&2
+            return 2
+          fi
+          shift; continue
+          ;;
+        --) parse_options=0; shift; continue ;;
+        -*) _mac_shell_tools_extract_message error.option "$1" >&2; return 2 ;;
+      esac
+    fi
+    if (( has_archive )); then
+      _mac_shell_tools_extract_message error.archive_count >&2
+      return 2
+    fi
+    archive=$1; has_archive=1; shift
+  done
+  if (( ! has_archive )) || [[ -z $archive ]]; then
+    _mac_shell_tools_extract_message error.archive_count >&2
+    return 2
+  fi
+  if (( list_only && has_destination )); then
+    _mac_shell_tools_extract_message error.list_directory >&2
+    return 2
+  fi
+  if [[ ! -f $archive || ! -r $archive ]]; then
+    _mac_shell_tools_extract_message error.archive "$archive" >&2
+    return 2
+  fi
+  archive_name=${archive:t}
+  base_name=$archive_name
+  lower_name=${(L)base_name}
+  case $lower_name in
+    *.tar.gz|*.tar.bz2|*.tar.xz) archive_kind=tar; base_name=${base_name%.*}; base_name=${base_name%.*} ;;
+    *.tar|*.tgz|*.tbz2|*.txz) archive_kind=tar; base_name=${base_name%.*} ;;
+    *.zip) archive_kind=zip; base_name=${base_name%.*} ;;
+    *) _mac_shell_tools_extract_message error.format "$archive" >&2; return 2 ;;
+  esac
+  archive=${archive:A}
+  if (( ! has_destination )); then
+    # Hidden archive names such as .zip must still produce an ordinary new directory.
+    case $base_name in ''|.|..) base_name="$archive_name.extracted" ;; esac
+    destination="$PWD/$base_name"
+  fi
+  destination=${destination:a}
+  if (( ! list_only )); then
+    if [[ -e $destination || -L $destination ]]; then
+      _mac_shell_tools_extract_message error.exists "$destination" >&2
+      return 2
+    fi
+    if [[ ! -d ${destination:h} ]]; then
+      _mac_shell_tools_extract_message error.parent "${destination:h}" >&2
+      return 2
+    fi
+  fi
+  dependencies=( mktemp cp rm mkdir cat )
+  case $archive_kind in
+    tar) dependencies+=( tar ) ;;
+    zip) dependencies+=( unzip ) ;;
+  esac
+  for dependency in "${dependencies[@]}"; do
+    if ! command -v "$dependency" >/dev/null 2>&1; then
+      _mac_shell_tools_extract_message error.dependency "$dependency" >&2
+      return 1
+    fi
+  done
+  # Archive backends read option environment variables. Isolate them so a caller's
+  # defaults cannot enable absolute paths, overwrite files, or execute tar hooks.
+  unset TAR_OPTIONS TAPE GZIP BZIP BZIP2 XZ_OPT XZ_DEFAULTS \
+    UNZIP UNZIPOPT ZIPINFO ZIPINFOOPT UNZIP_OPTS ZIPINFO_OPTS
+  umask 077
+  temporary_directory=$(command mktemp -d "${TMPDIR:-/tmp}/mst-extract.XXXXXX") || {
+    _mac_shell_tools_extract_message error.temporary >&2
+    return 1
+  }
+  trap 'command rm -rf -- "$temporary_directory"' EXIT
+  trap '_mac_shell_tools_extract_message error.interrupted >&2; if (( output_created )); then _mac_shell_tools_extract_message error.partial "$destination" >&2; fi; exit 1' HUP INT TERM
+  snapshot="$temporary_directory/archive.$archive_kind"
+  # Inspect and unpack the same bytes; a fixed ZIP name also avoids unzip's globbing.
+  if ! command cp -- "$archive" "$snapshot"; then
+    _mac_shell_tools_extract_message error.read >&2
+    return 1
+  fi
+  case $archive_kind in
+    tar) command tar -tf "$snapshot" > "$temporary_directory/names" 2> "$temporary_directory/err" ;;
+    zip) command unzip -Z -1 "$snapshot" > "$temporary_directory/names" 2> "$temporary_directory/err" ;;
+  esac
+  listing_status=$?
+  if (( listing_status )) || [[ -s "$temporary_directory/err" ]]; then
+    command cat "$temporary_directory/err" >&2
+    _mac_shell_tools_extract_message error.read >&2
+    return 1
+  fi
+  if (( list_only )); then
+    command cat "$temporary_directory/names"
+    return $?
+  fi
+  _mac_shell_tools_extract_paths "$temporary_directory/names" || return $?
+  case $archive_kind in
+    tar) command tar -tvf "$snapshot" > "$temporary_directory/types" 2> "$temporary_directory/err" ;;
+    zip) command unzip -Z -l-h-t "$snapshot" > "$temporary_directory/types" 2> "$temporary_directory/err" ;;
+  esac
+  listing_status=$?
+  if (( listing_status )) || [[ -s "$temporary_directory/err" ]]; then
+    command cat "$temporary_directory/err" >&2
+    _mac_shell_tools_extract_message error.read >&2
+    return 1
+  fi
+  _mac_shell_tools_extract_types "$temporary_directory/types" || return $?
+  # mkdir reserves the exact destination atomically, including concurrent calls.
+  if ! command mkdir -- "$destination"; then
+    _mac_shell_tools_extract_message error.create "$destination" >&2
+    return 1
+  fi
+  output_created=1
+  case $archive_kind in
+    tar) command tar -xf "$snapshot" -C "$destination" --no-same-owner --no-same-permissions ;;
+    zip) command unzip -qq -n -P '' "$snapshot" -d "$destination" </dev/null ;;
+  esac
+  if (( $? )); then
+    _mac_shell_tools_extract_message error.partial "$destination" >&2
+    return 1
+  fi
+  _mac_shell_tools_extract_message success "$destination"
+)
+
+_extract() {
+  setopt localoptions
+  local extract_language help_description version_description list_description directory_description archive_label directory_label
+  extract_language=$(_mac_shell_tools_extract_language) || return 2
+  help_description=$(_mac_shell_tools_extract_message completion.help)
+  version_description=$(_mac_shell_tools_extract_message completion.version)
+  list_description=$(_mac_shell_tools_extract_message completion.list)
+  directory_description=$(_mac_shell_tools_extract_message completion.directory)
+  archive_label=$(_mac_shell_tools_extract_message label.archive)
+  directory_label=$(_mac_shell_tools_extract_message label.directory)
+  _arguments -S \
+    "(-h --help)-h[$help_description]" \
+    "(-h --help)--help[$help_description]" \
+    "(-V --version)-V[$version_description]" \
+    "(-V --version)--version[$version_description]" \
+    "(-l --list)-l[$list_description]" \
+    "(-l --list)--list[$list_description]" \
+    "*-C[$directory_description]:$directory_label:_directories" \
+    "*--directory=[$directory_description]:$directory_label:_directories" \
+    "1:$archive_label:_files -g '(#i)*.(zip|tar|tar.gz|tgz|tar.bz2|tbz2|tar.xz|txz)'"
+}
+
+if (( $+functions[compdef] )); then
+  compdef _extract extract
+fi
+MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
+  mkdir -p "$stage/payload/tools/extract" || return 1
+  cat > "$stage/payload/tools/extract/version" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
+0.1.0-dev+aa6b7320aaee
+02d9250c9833bf19772b5d41ebec70d8b5883f61
+modified
+MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
+  mkdir -p "$stage/payload/tools/extract" || return 1
+  cat > "$stage/payload/tools/extract/i18n.sh" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
+# Shared POSIX sh language helpers. Configuration is read as data, never sourced.
+mst_resolve_language() (
+  settings=$1
+  override=$2
+  chosen=en
+  if [ -n "$override" ]; then
+    chosen=$override
+  elif [ -e "$settings" ] || [ -L "$settings" ]; then
+    if [ ! -f "$settings" ] || [ -L "$settings" ]; then
+      printf 'mst: Invalid language configuration: %s\n' "$settings" >&2
+      return 2
+    fi
+    seen=no
+    while IFS= read -r line || [ -n "$line" ]; do
+      case $line in
+        ''|'#'*) ;;
+        language=*)
+          if [ "$seen" = yes ]; then printf 'mst: Duplicate language setting: %s\n' "$settings" >&2; return 2; fi
+          chosen=${line#language=}; seen=yes ;;
+        *) printf 'mst: Invalid language configuration: %s\n' "$settings" >&2; return 2 ;;
+      esac
+    done < "$settings"
+  fi
+  case $chosen in
+    en|zh-CN) printf '%s\n' "$chosen" ;;
+    *) printf 'mst: Unsupported language: %s (use en or zh-CN).\n' "$chosen" >&2; return 2 ;;
+  esac
+)
+
+# Catalogs return fixed printf formats. Arguments are passed separately, without eval.
+mst_print_message() (
+  chosen_language=$1
+  message_key=$2
+  shift 2
+  format=$(mst_text_en "$message_key") || {
+    printf 'mst: Unknown message key: %s\n' "$message_key" >&2
+    return 1
+  }
+  case $chosen_language in
+    en) ;;
+    zh-CN)
+      if command -v mst_text_zh_CN >/dev/null 2>&1; then
+        translated=$(mst_text_zh_CN "$message_key") && format=$translated
+      fi
+      ;;
+  esac
+  printf "$format\n" "$@"
+)
+MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
+  mkdir -p "$stage/payload/tools/extract/locales" || return 1
+  cat > "$stage/payload/tools/extract/locales/en.sh" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
+# mst_text_en message catalog.
+mst_text_en() {
+  case $1 in
+    help) printf '%s\n' 'Usage: extract [options] archive
+
+Extract one ZIP or TAR archive into a new directory in the current directory.
+The default directory is the archive filename without its archive extension.
+Supported: .zip .tar .tar.gz .tgz .tar.bz2 .tbz2 .tar.xz .txz (case-insensitive).
+
+  -C DIR, --directory DIR, --directory=DIR  Exact new destination directory
+  -l, --list                               List archive contents without extracting
+  -V, --version                            Show the loaded tool version
+  -h, --help                               Show help
+  --                                       Stop parsing options
+
+Examples: extract app.tar.gz; extract app.zip -C ./unpacked; extract --list app.zip
+An existing destination is never used; its parent must already exist.
+Only ordinary files and directories are accepted; links and special entries are rejected.
+Absolute paths and parent-directory components are rejected before extraction.
+An archive snapshot uses temporary space; failed extraction keeps partial output.
+Encrypted ZIP files are unsupported. Backend diagnostics retain their own language.
+Exit codes: 0 success/list/help, 2 invalid input or rejected entries, 1 command failure.' ;;
+    success) printf '%s\n' 'Extracted to: %s' ;;
+    error.option) printf '%s\n' 'Unknown option: %s' ;;
+    error.value) printf '%s\n' '%s requires a nonempty directory.' ;;
+    error.archive_count) printf '%s\n' 'Specify exactly one archive.' ;;
+    error.list_directory) printf '%s\n' '--list cannot be combined with --directory.' ;;
+    error.archive) printf '%s\n' 'Not a readable archive file: %s' ;;
+    error.format) printf '%s\n' 'Unsupported archive extension: %s' ;;
+    error.exists) printf '%s\n' 'Destination already exists; choose a new directory: %s' ;;
+    error.parent) printf '%s\n' 'Destination parent directory does not exist: %s' ;;
+    error.dependency) printf '%s\n' 'Required command is missing: %s' ;;
+    error.temporary) printf '%s\n' 'Could not create a temporary directory.' ;;
+    error.read) printf '%s\n' 'Could not read the archive completely; nothing was extracted.' ;;
+    error.path) printf '%s\n' 'Unsupported or unsafe archive path: %s' ;;
+    error.type) printf '%s\n' 'Only ordinary files and directories are supported; links, special entries, or ambiguous listings were found.' ;;
+    error.encrypted) printf '%s\n' 'Encrypted ZIP entries are unsupported; nothing was extracted.' ;;
+    error.create) printf '%s\n' 'Could not create a new destination: %s' ;;
+    error.partial) printf '%s\n' 'Extraction failed; partial output was kept at: %s' ;;
+    error.interrupted) printf '%s\n' 'Extraction interrupted.' ;;
+    completion.help) printf '%s\n' 'Show help' ;;
+    completion.version) printf '%s\n' 'Show version' ;;
+    completion.list) printf '%s\n' 'List archive contents' ;;
+    completion.directory) printf '%s\n' 'New destination directory' ;;
+    label.archive) printf '%s\n' 'archive' ;;
+    label.directory) printf '%s\n' 'directory' ;;
+    *) return 1 ;;
+  esac
+}
+MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
+  mkdir -p "$stage/payload/tools/extract/locales" || return 1
+  cat > "$stage/payload/tools/extract/locales/zh-CN.sh" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
+# mst_text_zh_CN message catalog.
+mst_text_zh_CN() {
+  case $1 in
+    help) printf '%s\n' '用法：extract [选项] 压缩包
+
+将一个 ZIP 或 TAR 压缩包解压到当前目录下的新目录中。
+默认目录名为压缩包文件名去掉压缩扩展名。
+支持：.zip .tar .tar.gz .tgz .tar.bz2 .tbz2 .tar.xz .txz（不区分大小写）。
+
+  -C DIR, --directory DIR, --directory=DIR  指定准确的新目标目录
+  -l, --list                               只列出内容，不解压
+  -V, --version                            显示已加载的工具版本
+  -h, --help                               显示帮助
+  --                                       停止解析选项
+
+示例：extract app.tar.gz；extract app.zip -C ./unpacked；extract --list app.zip
+不使用已有目标目录；目标的父目录必须已存在。
+只接受普通文件和目录，拒绝链接及特殊条目。
+解压前拒绝绝对路径及包含上级目录组件的条目。
+压缩包快照需要临时空间；解压失败时保留已产生的部分内容。
+不支持加密 ZIP；底层命令的诊断保留其原有语言。
+退出码：0 成功/预览/帮助，2 参数错误或拒绝的条目，1 命令失败。' ;;
+    success) printf '%s\n' '已解压到：%s' ;;
+    error.option) printf '%s\n' '未知选项：%s' ;;
+    error.value) printf '%s\n' '%s 需要一个非空目录。' ;;
+    error.archive_count) printf '%s\n' '请指定且只指定一个压缩包。' ;;
+    error.list_directory) printf '%s\n' '--list 不能与 --directory 同时使用。' ;;
+    error.archive) printf '%s\n' '不是可读的压缩包文件：%s' ;;
+    error.format) printf '%s\n' '不支持的压缩扩展名：%s' ;;
+    error.exists) printf '%s\n' '目标已存在，请选择新目录：%s' ;;
+    error.parent) printf '%s\n' '目标的父目录不存在：%s' ;;
+    error.dependency) printf '%s\n' '缺少必要命令：%s' ;;
+    error.temporary) printf '%s\n' '无法创建临时目录。' ;;
+    error.read) printf '%s\n' '无法完整读取压缩包，未执行解压。' ;;
+    error.path) printf '%s\n' '不支持或不安全的压缩包路径：%s' ;;
+    error.type) printf '%s\n' '只支持普通文件和目录；发现链接、特殊条目或无法明确识别的列表。' ;;
+    error.encrypted) printf '%s\n' '不支持加密 ZIP 条目，未执行解压。' ;;
+    error.create) printf '%s\n' '无法创建新的目标目录：%s' ;;
+    error.partial) printf '%s\n' '解压失败，已产生的部分内容保留在：%s' ;;
+    error.interrupted) printf '%s\n' '解压已中断。' ;;
+    completion.help) printf '%s\n' '显示帮助' ;;
+    completion.version) printf '%s\n' '显示版本' ;;
+    completion.list) printf '%s\n' '预览压缩包内容' ;;
+    completion.directory) printf '%s\n' '新的目标目录' ;;
+    label.archive) printf '%s\n' '压缩包' ;;
+    label.directory) printf '%s\n' '目录' ;;
+    *) return 1 ;;
+  esac
+}
+MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
+  mkdir -p "$stage/payload/tools/extract" || return 1
+  cat > "$stage/payload/tools/extract/files.list" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
+extract.zsh
+version
+i18n.sh
+locales/en.sh
+locales/zh-CN.sh
+MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
+}
+
+tool_files=' dsize.zsh portwho.zsh extract.zsh'
 MAC_SHELL_TOOLS_MANAGER_7D4C
 }
 bootstrap_main "$@"

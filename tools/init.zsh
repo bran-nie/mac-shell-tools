@@ -19,6 +19,16 @@ if [ -z "${ZSH_VERSION-}" ]; then return 0; fi
   elif [[ -f "$mac_shell_tools_directory/dsize/dsize.zsh" ]]; then
     source "$mac_shell_tools_directory/dsize/dsize.zsh"
   fi
+  if [[ -f "$mac_shell_tools_directory/tools/portwho/portwho.zsh" ]]; then
+    source "$mac_shell_tools_directory/tools/portwho/portwho.zsh"
+  elif [[ -f "$mac_shell_tools_directory/portwho/portwho.zsh" ]]; then
+    source "$mac_shell_tools_directory/portwho/portwho.zsh"
+  fi
+  if [[ -f "$mac_shell_tools_directory/tools/extract/extract.zsh" ]]; then
+    source "$mac_shell_tools_directory/tools/extract/extract.zsh"
+  elif [[ -f "$mac_shell_tools_directory/extract/extract.zsh" ]]; then
+    source "$mac_shell_tools_directory/extract/extract.zsh"
+  fi
 }
 # <<< mac-shell-tools managed tools <<<
 
