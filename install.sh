@@ -20,10 +20,10 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-# Package version: 0.1.0-dev+86c05b041fce
-# Source revision: c84c8588754558aea5c8311b1ebbf75ad79b46f8
-# Source state: clean
-# Source digest: 86c05b041fce2e51eb66ac2f0e589f6e71023fa946f51957b5a93021412f1bfd
+# Package version: 0.1.0-dev+56a073aed4d3
+# Source revision: 82ef43f85d25b9d78729e8e3da2e83b0e8cffac5
+# Source state: modified
+# Source digest: 56a073aed4d33951cb1ce7abf48851241e22baab4a41771192836198d0802533
 # mac-shell-tools bootstrap v1
 # 自包含引导脚本：先展开共享管理器，再在当前进程中执行。
 set -eu
@@ -143,7 +143,7 @@ mst_text_en() {
     error.escape) printf '%s\n' 'Cannot quote configuration path: %s' ;;
     error.syntax) printf '%s\n' 'Shell syntax check failed: %s' ;;
     error.dependency) printf '%s\n' 'Required command is missing: %s' ;;
-    error.platform) printf '%s\n' 'This version supports macOS only.' ;;
+    error.platform) printf '%s\n' 'Supported systems: macOS and Linux.' ;;
     error.mkdir) printf '%s\n' 'Cannot create directory: %s' ;;
     error.enter) printf '%s\n' 'Cannot enter directory: %s' ;;
     error.lock) printf '%s\n' 'Cannot acquire the installation lock; check for another operation before removing it: %s' ;;
@@ -168,8 +168,8 @@ mst_text_en() {
     info.unchanged) printf '%s\n' 'No files need changing.' ;;
     info.complete) printf '%s\n' 'Operation complete.' ;;
     info.login) printf '%s\n' 'Starting a new login Zsh in this terminal; exiting may return to the previous session.' ;;
-    info.activate) printf '%s\n' 'Open a new terminal, or run this in your current Zsh:' ;;
-    info.uninstall_activate) printf '%s\n' 'Open a new terminal or run exec zsh -l; loaded functions remain in existing sessions.' ;;
+    info.activate) printf '%s\n' 'Start Zsh with zsh -l, or run this in your current Zsh:' ;;
+    info.uninstall_activate) printf '%s\n' 'Start a fresh Zsh with exec zsh -l; loaded functions remain in existing sessions.' ;;
     info.empty) printf '%s\n' 'No tools are installed; nothing to update.' ;;
     info.no_tools) printf '%s\n' 'No tools to process. Run mst list to see their status.' ;;
     info.language) printf '%s\n' 'Language: %s' ;;
@@ -239,7 +239,7 @@ mst_text_zh_CN() {
     error.escape) printf '%s\n' '无法转义配置路径：%s' ;;
     error.syntax) printf '%s\n' 'Shell 语法检查失败：%s' ;;
     error.dependency) printf '%s\n' '缺少基础命令：%s' ;;
-    error.platform) printf '%s\n' '当前版本仅支持 macOS。' ;;
+    error.platform) printf '%s\n' '支持的系统：macOS 和 Linux。' ;;
     error.mkdir) printf '%s\n' '无法创建目录：%s' ;;
     error.enter) printf '%s\n' '无法进入目录：%s' ;;
     error.lock) printf '%s\n' '无法取得安装锁；确认没有其他操作运行后再处理：%s' ;;
@@ -264,8 +264,8 @@ mst_text_zh_CN() {
     info.unchanged) printf '%s\n' '没有需要变更的文件。' ;;
     info.complete) printf '%s\n' '操作完成。' ;;
     info.login) printf '%s\n' '即将在当前终端启动新的 Zsh 登录会话；退出后可能回到原会话。' ;;
-    info.activate) printf '%s\n' '请重新打开终端，或在当前 Zsh 执行：' ;;
-    info.uninstall_activate) printf '%s\n' '请重新打开终端或执行 exec zsh -l；已有会话中的函数不会自动清除。' ;;
+    info.activate) printf '%s\n' '请执行 zsh -l 进入 Zsh，或在当前 Zsh 执行：' ;;
+    info.uninstall_activate) printf '%s\n' '请执行 exec zsh -l 启动全新的 Zsh；已有会话中的函数不会自动清除。' ;;
     info.empty) printf '%s\n' '尚未安装工具，无需更新。' ;;
     info.no_tools) printf '%s\n' '没有可处理的工具；可运行 mst list 查看状态。' ;;
     info.language) printf '%s\n' '语言：%s' ;;
@@ -307,9 +307,9 @@ RUNZSH=no 也可关闭新的登录会话。
   esac
 }
 
-package_version='0.1.0-dev+86c05b041fce'
-package_revision='c84c8588754558aea5c8311b1ebbf75ad79b46f8'
-package_state='clean'
+package_version='0.1.0-dev+56a073aed4d3'
+package_revision='82ef43f85d25b9d78729e8e3da2e83b0e8cffac5'
+package_state='modified'
 # mac-shell-tools 共享管理器；引导安装与常驻 mst 共用此实现。
 # 由生成脚本打包运行时源码，管理器始终从文件加载。
 set -eu
@@ -586,7 +586,11 @@ list_tools() {
 # 将下一份清单渲染为集中入口，只替换项目管理区域。
 prepare_init() {
   {
-    printf '%s\n' "$init_begin" '() {' '  emulate -L zsh'
+    printf '%s\n' "$init_begin" 'if [ -z "${ZSH_VERSION-}" ]; then return 0; fi' '() {' '  emulate -L zsh'
+    # Frameworks may already provide completion. Check the live shell instead
+    # of guessing from an Oh My Zsh directory or executing the user's config.
+    printf '%s\n' '  if [[ -o interactive ]] && (( ! $+functions[compdef] )); then' \
+      '    autoload -Uz compinit' '    compinit' '  fi'
     printf '%s\n' '  local mac_shell_tools_directory=${${(%):-%x}:A:h}'
     printf '%s\n' '  if [[ -f "$mac_shell_tools_directory/manager/mst.zsh" ]]; then' \
       '    source "$mac_shell_tools_directory/manager/mst.zsh"' '  fi'
@@ -642,7 +646,7 @@ prepare_zshrc() {
       fail error.escape "$install_directory/init.zsh"
     {
       printf '%s\n' "$rc_begin"
-      printf 'if [[ -f %s ]]; then\n' "$quoted_init"
+      printf 'if [ -n "${ZSH_VERSION-}" ] && [ -f %s ]; then\n' "$quoted_init"
       printf '  source %s\n' "$quoted_init"
       printf '%s\n' 'fi' "$rc_end"
     } >> "$stage/next-zshrc" || fail error.write "$zshrc"
@@ -1106,7 +1110,7 @@ main() {
     command -v "$dependency" >/dev/null 2>&1 || fail error.dependency "$dependency"
   done
   platform=$(uname -s) || fail error.platform
-  case $platform in Darwin) ;; *) fail error.platform ;; esac
+  case $platform in Darwin|Linux) ;; *) fail error.platform ;; esac
   check_file "$install_directory/init.zsh"
   check_file "$zshrc"
   if [ -f "$install_directory/init.zsh" ]; then
@@ -1243,8 +1247,14 @@ write_payload() {
 # 管理区域显式注册工具；其他区域由用户维护，更新时保留。
 
 # >>> mac-shell-tools managed tools >>>
+if [ -z "${ZSH_VERSION-}" ]; then return 0; fi
 () {
   emulate -L zsh
+  # Reuse completion initialized by Oh My Zsh or another Zsh configuration.
+  if [[ -o interactive ]] && (( ! $+functions[compdef] )); then
+    autoload -Uz compinit
+    compinit
+  fi
   local mac_shell_tools_directory=${${(%):-%x}:A:h}
   if [[ -f "$mac_shell_tools_directory/manager/mst.zsh" ]]; then
     source "$mac_shell_tools_directory/manager/mst.zsh"
@@ -1357,7 +1367,7 @@ mst_text_en() {
     error.escape) printf '%s\n' 'Cannot quote configuration path: %s' ;;
     error.syntax) printf '%s\n' 'Shell syntax check failed: %s' ;;
     error.dependency) printf '%s\n' 'Required command is missing: %s' ;;
-    error.platform) printf '%s\n' 'This version supports macOS only.' ;;
+    error.platform) printf '%s\n' 'Supported systems: macOS and Linux.' ;;
     error.mkdir) printf '%s\n' 'Cannot create directory: %s' ;;
     error.enter) printf '%s\n' 'Cannot enter directory: %s' ;;
     error.lock) printf '%s\n' 'Cannot acquire the installation lock; check for another operation before removing it: %s' ;;
@@ -1382,8 +1392,8 @@ mst_text_en() {
     info.unchanged) printf '%s\n' 'No files need changing.' ;;
     info.complete) printf '%s\n' 'Operation complete.' ;;
     info.login) printf '%s\n' 'Starting a new login Zsh in this terminal; exiting may return to the previous session.' ;;
-    info.activate) printf '%s\n' 'Open a new terminal, or run this in your current Zsh:' ;;
-    info.uninstall_activate) printf '%s\n' 'Open a new terminal or run exec zsh -l; loaded functions remain in existing sessions.' ;;
+    info.activate) printf '%s\n' 'Start Zsh with zsh -l, or run this in your current Zsh:' ;;
+    info.uninstall_activate) printf '%s\n' 'Start a fresh Zsh with exec zsh -l; loaded functions remain in existing sessions.' ;;
     info.empty) printf '%s\n' 'No tools are installed; nothing to update.' ;;
     info.no_tools) printf '%s\n' 'No tools to process. Run mst list to see their status.' ;;
     info.language) printf '%s\n' 'Language: %s' ;;
@@ -1456,7 +1466,7 @@ mst_text_zh_CN() {
     error.escape) printf '%s\n' '无法转义配置路径：%s' ;;
     error.syntax) printf '%s\n' 'Shell 语法检查失败：%s' ;;
     error.dependency) printf '%s\n' '缺少基础命令：%s' ;;
-    error.platform) printf '%s\n' '当前版本仅支持 macOS。' ;;
+    error.platform) printf '%s\n' '支持的系统：macOS 和 Linux。' ;;
     error.mkdir) printf '%s\n' '无法创建目录：%s' ;;
     error.enter) printf '%s\n' '无法进入目录：%s' ;;
     error.lock) printf '%s\n' '无法取得安装锁；确认没有其他操作运行后再处理：%s' ;;
@@ -1481,8 +1491,8 @@ mst_text_zh_CN() {
     info.unchanged) printf '%s\n' '没有需要变更的文件。' ;;
     info.complete) printf '%s\n' '操作完成。' ;;
     info.login) printf '%s\n' '即将在当前终端启动新的 Zsh 登录会话；退出后可能回到原会话。' ;;
-    info.activate) printf '%s\n' '请重新打开终端，或在当前 Zsh 执行：' ;;
-    info.uninstall_activate) printf '%s\n' '请重新打开终端或执行 exec zsh -l；已有会话中的函数不会自动清除。' ;;
+    info.activate) printf '%s\n' '请执行 zsh -l 进入 Zsh，或在当前 Zsh 执行：' ;;
+    info.uninstall_activate) printf '%s\n' '请执行 exec zsh -l 启动全新的 Zsh；已有会话中的函数不会自动清除。' ;;
     info.empty) printf '%s\n' '尚未安装工具，无需更新。' ;;
     info.no_tools) printf '%s\n' '没有可处理的工具；可运行 mst list 查看状态。' ;;
     info.language) printf '%s\n' '语言：%s' ;;
@@ -1563,7 +1573,7 @@ _mac_shell_tools_dsize_help() {
 # Values are embedded when building the package, so --version describes the
 # function actually loaded in this session even if its on-disk file was updated.
 _mac_shell_tools_dsize_version() {
-  local version='0.1.0-dev+86c05b041fce' revision='c84c8588754558aea5c8311b1ebbf75ad79b46f8' source_state='clean'
+  local version='0.1.0-dev+56a073aed4d3' revision='82ef43f85d25b9d78729e8e3da2e83b0e8cffac5' source_state='modified'
   case $version in @*) version=development; revision=unbuilt; source_state=unknown ;; esac
   print -r -- "dsize $version ($revision; $source_state)"
 }
@@ -1735,9 +1745,9 @@ fi
 MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
   mkdir -p "$stage/payload/tools/dsize" || return 1
   cat > "$stage/payload/tools/dsize/version" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
-0.1.0-dev+86c05b041fce
-c84c8588754558aea5c8311b1ebbf75ad79b46f8
-clean
+0.1.0-dev+56a073aed4d3
+82ef43f85d25b9d78729e8e3da2e83b0e8cffac5
+modified
 MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
   mkdir -p "$stage/payload/tools/dsize" || return 1
   cat > "$stage/payload/tools/dsize/i18n.sh" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1

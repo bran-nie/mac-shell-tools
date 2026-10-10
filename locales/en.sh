@@ -27,7 +27,7 @@ mst_text_en() {
     error.escape) printf '%s\n' 'Cannot quote configuration path: %s' ;;
     error.syntax) printf '%s\n' 'Shell syntax check failed: %s' ;;
     error.dependency) printf '%s\n' 'Required command is missing: %s' ;;
-    error.platform) printf '%s\n' 'This version supports macOS only.' ;;
+    error.platform) printf '%s\n' 'Supported systems: macOS and Linux.' ;;
     error.mkdir) printf '%s\n' 'Cannot create directory: %s' ;;
     error.enter) printf '%s\n' 'Cannot enter directory: %s' ;;
     error.lock) printf '%s\n' 'Cannot acquire the installation lock; check for another operation before removing it: %s' ;;
@@ -52,8 +52,8 @@ mst_text_en() {
     info.unchanged) printf '%s\n' 'No files need changing.' ;;
     info.complete) printf '%s\n' 'Operation complete.' ;;
     info.login) printf '%s\n' 'Starting a new login Zsh in this terminal; exiting may return to the previous session.' ;;
-    info.activate) printf '%s\n' 'Open a new terminal, or run this in your current Zsh:' ;;
-    info.uninstall_activate) printf '%s\n' 'Open a new terminal or run exec zsh -l; loaded functions remain in existing sessions.' ;;
+    info.activate) printf '%s\n' 'Start Zsh with zsh -l, or run this in your current Zsh:' ;;
+    info.uninstall_activate) printf '%s\n' 'Start a fresh Zsh with exec zsh -l; loaded functions remain in existing sessions.' ;;
     info.empty) printf '%s\n' 'No tools are installed; nothing to update.' ;;
     info.no_tools) printf '%s\n' 'No tools to process. Run mst list to see their status.' ;;
     info.language) printf '%s\n' 'Language: %s' ;;

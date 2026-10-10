@@ -275,7 +275,11 @@ list_tools() {
 # 将下一份清单渲染为集中入口，只替换项目管理区域。
 prepare_init() {
   {
-    printf '%s\n' "$init_begin" '() {' '  emulate -L zsh'
+    printf '%s\n' "$init_begin" 'if [ -z "${ZSH_VERSION-}" ]; then return 0; fi' '() {' '  emulate -L zsh'
+    # Frameworks may already provide completion. Check the live shell instead
+    # of guessing from an Oh My Zsh directory or executing the user's config.
+    printf '%s\n' '  if [[ -o interactive ]] && (( ! $+functions[compdef] )); then' \
+      '    autoload -Uz compinit' '    compinit' '  fi'
     printf '%s\n' '  local mac_shell_tools_directory=${${(%):-%x}:A:h}'
     printf '%s\n' '  if [[ -f "$mac_shell_tools_directory/manager/mst.zsh" ]]; then' \
       '    source "$mac_shell_tools_directory/manager/mst.zsh"' '  fi'
@@ -331,7 +335,7 @@ prepare_zshrc() {
       fail error.escape "$install_directory/init.zsh"
     {
       printf '%s\n' "$rc_begin"
-      printf 'if [[ -f %s ]]; then\n' "$quoted_init"
+      printf 'if [ -n "${ZSH_VERSION-}" ] && [ -f %s ]; then\n' "$quoted_init"
       printf '  source %s\n' "$quoted_init"
       printf '%s\n' 'fi' "$rc_end"
     } >> "$stage/next-zshrc" || fail error.write "$zshrc"
@@ -795,7 +799,7 @@ main() {
     command -v "$dependency" >/dev/null 2>&1 || fail error.dependency "$dependency"
   done
   platform=$(uname -s) || fail error.platform
-  case $platform in Darwin) ;; *) fail error.platform ;; esac
+  case $platform in Darwin|Linux) ;; *) fail error.platform ;; esac
   check_file "$install_directory/init.zsh"
   check_file "$zshrc"
   if [ -f "$install_directory/init.zsh" ]; then

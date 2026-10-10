@@ -2,8 +2,14 @@
 # 管理区域显式注册工具；其他区域由用户维护，更新时保留。
 
 # >>> mac-shell-tools managed tools >>>
+if [ -z "${ZSH_VERSION-}" ]; then return 0; fi
 () {
   emulate -L zsh
+  # Reuse completion initialized by Oh My Zsh or another Zsh configuration.
+  if [[ -o interactive ]] && (( ! $+functions[compdef] )); then
+    autoload -Uz compinit
+    compinit
+  fi
   local mac_shell_tools_directory=${${(%):-%x}:A:h}
   if [[ -f "$mac_shell_tools_directory/manager/mst.zsh" ]]; then
     source "$mac_shell_tools_directory/manager/mst.zsh"

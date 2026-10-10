@@ -27,7 +27,7 @@ mst_text_zh_CN() {
     error.escape) printf '%s\n' '无法转义配置路径：%s' ;;
     error.syntax) printf '%s\n' 'Shell 语法检查失败：%s' ;;
     error.dependency) printf '%s\n' '缺少基础命令：%s' ;;
-    error.platform) printf '%s\n' '当前版本仅支持 macOS。' ;;
+    error.platform) printf '%s\n' '支持的系统：macOS 和 Linux。' ;;
     error.mkdir) printf '%s\n' '无法创建目录：%s' ;;
     error.enter) printf '%s\n' '无法进入目录：%s' ;;
     error.lock) printf '%s\n' '无法取得安装锁；确认没有其他操作运行后再处理：%s' ;;
@@ -52,8 +52,8 @@ mst_text_zh_CN() {
     info.unchanged) printf '%s\n' '没有需要变更的文件。' ;;
     info.complete) printf '%s\n' '操作完成。' ;;
     info.login) printf '%s\n' '即将在当前终端启动新的 Zsh 登录会话；退出后可能回到原会话。' ;;
-    info.activate) printf '%s\n' '请重新打开终端，或在当前 Zsh 执行：' ;;
-    info.uninstall_activate) printf '%s\n' '请重新打开终端或执行 exec zsh -l；已有会话中的函数不会自动清除。' ;;
+    info.activate) printf '%s\n' '请执行 zsh -l 进入 Zsh，或在当前 Zsh 执行：' ;;
+    info.uninstall_activate) printf '%s\n' '请执行 exec zsh -l 启动全新的 Zsh；已有会话中的函数不会自动清除。' ;;
     info.empty) printf '%s\n' '尚未安装工具，无需更新。' ;;
     info.no_tools) printf '%s\n' '没有可处理的工具；可运行 mst list 查看状态。' ;;
     info.language) printf '%s\n' '语言：%s' ;;

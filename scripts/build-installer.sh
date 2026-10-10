@@ -38,9 +38,17 @@ for tool_file in $(cat "$script_dir/tools.list"); do
     if [ -f "$source_component/locales/$catalog.sh" ]; then source_files="$source_files tools/$tool_name/locales/$catalog.sh"; fi
   done
 done
+if command -v sha256sum >/dev/null 2>&1; then
+  sha256() { sha256sum "$@"; }
+elif command -v shasum >/dev/null 2>&1; then
+  sha256() { shasum -a 256 "$@"; }
+else
+  printf '%s\n' 'Building requires sha256sum or shasum.' >&2
+  exit 1
+fi
 source_digest=$(
   CDPATH= cd -P "$project_dir"
-  for source_file in $source_files; do shasum -a 256 "$source_file"; done | shasum -a 256 | awk '{print $1}'
+  for source_file in $source_files; do sha256 "$source_file"; done | sha256 | awk '{print $1}'
 )
 source_revision=unknown
 source_state=unknown
