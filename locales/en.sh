@@ -20,6 +20,11 @@ mst_text_en() {
     error.markers) printf '%s\n' 'Managed markers are broken or duplicated: %s' ;;
     error.unknown_entry) printf '%s\n' 'Existing entry has no recognized managed block: %s' ;;
     error.state) printf '%s\n' 'Invalid or duplicate installed-tool record: %s' ;;
+    error.metadata) printf '%s\n' 'Invalid or missing version metadata: %s' ;;
+    error.catalog) printf '%s\n' 'Invalid tool catalog: %s' ;;
+    error.repository) printf '%s\n' 'Local tool repository is missing; run mst upgrade to synchronize it.' ;;
+    error.download_manifest) printf '%s\n' 'Invalid online resource manifest: %s' ;;
+    error.checksum) printf '%s\n' 'Downloaded resource checksum mismatch: %s' ;;
     error.assets) printf '%s\n' 'Invalid owned-file manifest: %s' ;;
     error.available) printf '%s\n' 'Tool is unavailable in this package: %s' ;;
     error.not_installed) printf '%s\n' 'Tool is not installed: %s' ;;
@@ -32,7 +37,7 @@ mst_text_en() {
     error.enter) printf '%s\n' 'Cannot enter directory: %s' ;;
     error.lock) printf '%s\n' 'Cannot acquire the installation lock; check for another operation before removing it: %s' ;;
     error.stage) printf '%s\n' 'Cannot create a temporary directory.' ;;
-    error.payload) printf '%s\n' 'Cannot prepare embedded files.' ;;
+    error.payload) printf '%s\n' 'Cannot prepare the tool repository.' ;;
     error.readonly) printf '%s\n' 'File is not writable: %s' ;;
     error.parent) printf '%s\n' 'Directory is not writable or accessible: %s' ;;
     error.backup) printf '%s\n' 'Cannot create a complete backup: %s' ;;
@@ -68,12 +73,12 @@ mst_text_en() {
        sh install.sh [command] [tool ...] [options]
 
 Commands:
-  install [tool ...]       Install selected tools; no names means all.
-  update [tool ...]        Update installed tools only.
+  install [tool ...]       Install from the local repository; no names means all.
+  update [tool ...]        Synchronize, then update installed tools only.
   uninstall tool ...      Uninstall selected tools, with backups.
   uninstall --all         Uninstall all tools; keep mst.
   list                    Show the local catalog, status, and versions.
-  upgrade                 Upgrade mst and its catalog; keep tools unchanged.
+  upgrade                 Upgrade mst and sync scripts; keep installed tools unchanged.
   version                 Show mst'\''s installed version and source revision.
   config language         Show the saved language (default: en).
   config language en      Save English for mst and tools.
@@ -88,7 +93,8 @@ Options:
   -h, --help              Show this help.
 
 Running install.sh without a command installs mst only.
-Installed mst install/update/upgrade fetch the latest GitHub package.
+mst upgrade/update synchronize the latest GitHub source snapshot.
+Ordinary mst install is offline; online tools download declared resources.
 RUNZSH=no also disables the new login session.
 Language changes take effect on the next invocation, without a new session.' ;;
     *) return 1 ;;

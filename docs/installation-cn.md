@@ -4,7 +4,7 @@
 
 ## 支持的系统与 Zsh
 
-支持 macOS 和 Linux。mst、工具及补全依赖 Zsh，Oh My Zsh 可选。Linux 需要 GNU Coreutils 或支持相同工具参数的命令（dsize 使用 `du -h -d`、`sort -h`、`tail -n`），在线操作还需要 curl。
+支持 macOS 和 Linux。mst、工具及补全依赖 Zsh，Oh My Zsh 可选。Linux 需要 GNU Coreutils 或支持相同工具参数的命令（dsize 使用 `du -h -d`、`sort -h`、`tail -n`），在线同步还需要 curl 和 tar。
 
 Ubuntu 24.04 LTS 缺少依赖时可先执行：
 
@@ -19,7 +19,7 @@ sudo apt-get install -y zsh curl
 
 ## 先安装管理器，再选择工具
 
-项目 README 推荐的 GitHub 命令不带参数执行自包含的 `install.sh`，仅安装 mst 及共享入口，不启用具体工具。随后执行：
+项目 README 推荐的 GitHub 命令不带参数执行轻量 `install.sh`。引导下载完整源码快照，安装 mst 及共享入口，并将普通工具脚本同步到独立的本地仓库，不启用具体工具。随后执行：
 
 ```sh
 mst list
@@ -33,19 +33,21 @@ mst install dsize
 | 命令 | 来源和作用 |
 | --- | --- |
 | `mst list` | 读取本地可用工具目录和已安装清单 |
-| `mst install <工具名>` | 获取最新安装包，安装指定工具，同时刷新管理器 |
-| `mst install --all` | 获取最新安装包，安装全部可用工具 |
-| `mst update [工具名 ...]` | 获取最新安装包，仅更新已安装工具，保留管理器版本 |
-| `mst upgrade` | 获取最新管理器和可用工具目录，保留工具文件及安装选择 |
+| `mst install <工具名>` | 从本地工具仓库安装指定工具；在线工具另行下载声明的资源 |
+| `mst install --all` | 从本地工具仓库安装全部可用工具；在线工具另行下载资源 |
+| `mst update [工具名 ...]` | 同步最新源码快照，再更新已安装工具，保留管理器版本 |
+| `mst upgrade` | 升级管理器并同步清单和普通脚本，保留已安装工具及版本 |
 | `mst uninstall <工具名>` / `mst uninstall --all` | 离线删除已登记工具，保留 mst |
 
-在线操作从 [GitHub main 安装包](https://raw.githubusercontent.com/bran-nie/mac-shell-tools/main/install.sh)获取内容。完整下载后，先检查内容、Shell 语法和支持的引导标记，再执行和修改配置。下载失败或内容无效时，现有管理文件保持不变。
+在线同步先获取[轻量引导](https://raw.githubusercontent.com/bran-nie/mac-shell-tools/main/install.sh)，再下载同一份 [GitHub main 源码快照](https://codeload.github.com/bran-nie/mac-shell-tools/tar.gz/refs/heads/main)。归档在展开前检查路径、链接及文件类型，管理器和工具在写入前检查清单与语法。下载失败或内容无效时，现有管理文件保持不变。
 
 `mst list` 使用上次保存的工具目录。执行 `mst upgrade` 可以发现项目新发布的工具，再按需安装。`upgrade` 和 `update` 都不会安装新工具或已卸载的工具；没有已安装工具时，`update` 直接返回，不联网。
 
 工具命令接受多个名称。`install` 不带名称表示全部可用工具，`update` 不带名称表示全部已安装工具。`--all` 选择当前操作对应的全部工具，不能与名称混用。`uninstall` 必须提供名称或 `--all`；`upgrade` 和 `list` 不接受名称或 `--all`。
 
-本地或单文件分发时，`sh install.sh` 也只安装 mst。显式执行 `sh install.sh install dsize` 等命令使用这份脚本内嵌的文件；安装后的 `mst` 则采用上表中的在线行为。
+在完整仓库中执行 `sh install.sh` 使用同目录下的独立源文件，无需联网；显式执行 `sh install.sh install dsize` 同步这些源文件并安装指定工具。单独复制或通过管道运行 `install.sh` 时，引导需要联网下载源码快照；单个脚本不再携带工具源码。需要离线分发时，复制完整仓库（包括生成的 `package.meta`）。
+
+同步与安装分开：`repository/` 保存可安装的脚本和目录快照，`tools/` 保存实际安装版本。`mst upgrade` 不执行在线工具的资源下载，也不改动已安装工具。普通脚本即使运行时需要访问网络，其安装仍可离线；只有声明安装资源的工具才在安装或更新时额外联网。
 
 ## 路径与归属
 
@@ -56,6 +58,7 @@ mst install dsize
 | 管理器实现 | `<根目录>/manager/manager-core.sh` |
 | 启动器与 Zsh 函数 | `<根目录>/manager/mst.sh` 和 `mst.zsh` |
 | 管理器版本及语言包 | `<根目录>/manager/version` 和 `locales/` |
+| 本地工具仓库 | `<根目录>/repository/`，包含 `catalog.tsv`、版本和独立工具脚本 |
 | 工具组件 | `<根目录>/tools/<名称>/`，包括源码、`version`、`files.list` 和语言包 |
 | 已安装工具清单 | `<根目录>/tools/installed.list` |
 | 保存的偏好 | `<根目录>/config.conf` |
@@ -97,7 +100,7 @@ mst --lang zh-CN list
 
 发布版本使用 `主版本.次版本.修订号`，Git 标签为 `vX.Y.Z`。未发布构建形如 `0.1.0-dev+<源码摘要>`。开发快照可能显示 `modified`，无法取得 Git 来源时记为 `unknown`。来源提交描述构建时的源码快照，可能早于生成安装包的发布提交。
 
-`mst list` 分别展示已安装版本和本地目录中的可用版本。`mst upgrade` 更新管理器及工具目录，`mst update` 更新已安装工具的整个组件及版本记录。在线命令获取已发布到 `main` 的安装包，不通过比较版本号选择发布版本。
+`mst list` 分别展示已安装版本和本地目录中的可用版本。`mst upgrade` 更新管理器及工具目录，`mst update` 更新已安装工具的整个组件及版本记录。在线同步获取已发布到 `main` 的源码快照，不通过比较版本号选择发布版本。
 
 ## 迁移原目录
 

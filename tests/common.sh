@@ -12,9 +12,9 @@ copy_package() {
   package_source=$1
   package_target=$2
   mkdir -p "$package_target/scripts" "$package_target/tools" "$package_target/lib"
-  cp "$package_source/scripts/build-installer.sh" "$package_source/scripts/installer.sh.in" \
+  cp "$package_source/scripts/build-installer.sh" \
     "$package_source/scripts/bootstrap.sh.in" "$package_source/scripts/tools.list" "$package_target/scripts/"
-  cp "$package_source/lib/mst.zsh" "$package_source/lib/i18n.sh" "$package_target/lib/"
+  cp "$package_source/lib/"*.sh "$package_source/lib/mst.zsh" "$package_target/lib/"
   cp "$package_source/tools/init.zsh" "$package_target/tools/"
   for package_tool in $(cat "$package_source/scripts/tools.list"); do
     cp -R "$package_source/tools/${package_tool%.zsh}" "$package_target/tools/"
@@ -47,4 +47,48 @@ backup_pattern() {
     "$zshrc") printf '%s/backups/zshrc/.zshrc.bak.*\n' "$install_directory" ;;
     *) return 1 ;;
   esac
+}
+
+
+# Mock both the small bootstrap and its source snapshot. No test reaches GitHub.
+mock_release_curl() {
+  cat > "$1/curl" <<'MOCK'
+#!/bin/sh
+set -eu
+if [ -n "${MST_CURL_LOG:-}" ]; then printf '%s\n' "$*" >> "$MST_CURL_LOG"; fi
+output=
+url=
+while [ "$#" -gt 0 ]; do
+  case $1 in
+    -o) output=$2; shift 2 ;;
+    https://*) url=$1; shift ;;
+    *) shift ;;
+  esac
+done
+[ -n "$output" ] || exit 90
+case ${MST_DOWNLOAD_MODE:-ok} in
+  fail) printf 'simulated HTTP failure\n' >&2; exit 22 ;;
+  empty) : > "$output"; exit 0 ;;
+  html) printf '<html>not a release</html>\n' > "$output"; exit 0 ;;
+  syntax) printf '# mac-shell-tools bootstrap v1\nif (\n' > "$output"; exit 0 ;;
+  foreign) printf '#!/bin/sh\nexit 0\n' > "$output"; exit 0 ;;
+  ok) ;;
+  *) exit 91 ;;
+esac
+case $url in
+  https://raw.githubusercontent.com/bran-nie/mac-shell-tools/main/install.sh)
+    cp "$MST_RELEASE" "$output" ;;
+  https://codeload.github.com/bran-nie/mac-shell-tools/tar.gz/refs/heads/main)
+    if [ -n "${MST_ARCHIVE:-}" ]; then
+      cp "$MST_ARCHIVE" "$output"
+    else
+      release_directory=${MST_RELEASE%/*}
+      COPYFILE_DISABLE=1 tar -czf "$output" -C "${release_directory%/*}" "${release_directory##*/}"
+    fi ;;
+  https://example.invalid/resource)
+    cp "$MST_RESOURCE" "$output" ;;
+  *) printf 'Unexpected test download: %s\n' "$url" >&2; exit 92 ;;
+esac
+MOCK
+  chmod +x "$1/curl"
 }

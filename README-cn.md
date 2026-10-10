@@ -4,7 +4,7 @@
 
 面向 macOS 和 Linux 的轻量 Zsh 工具管理器。先安装 **mst**，再选择需要的工具。
 
-需要 Zsh 和系统基础命令，在线操作还需要 curl；Linux 使用 GNU Coreutils 或兼容命令。共享入口会复用已有补全系统（包括 Oh My Zsh），交互式 Zsh 尚未初始化补全时自动初始化。管理器安装到用户配置目录，无需 `sudo`。参见 [Ubuntu 24.04 依赖准备](docs/installation-cn.md#支持的系统与-zsh)。
+需要 Zsh 和系统基础命令，在线同步还需要 curl 和 tar；Linux 使用 GNU Coreutils 或兼容命令。共享入口会复用已有补全系统（包括 Oh My Zsh），交互式 Zsh 尚未初始化补全时自动初始化。管理器安装到用户配置目录，无需 `sudo`。参见 [Ubuntu 24.04 依赖准备](docs/installation-cn.md#支持的系统与-zsh)。
 
 ## 安装 mst
 
@@ -15,7 +15,7 @@ mac_shell_tools_installer="$(curl -fsSL "https://raw.githubusercontent.com/bran-
   sh -c "$mac_shell_tools_installer"
 ```
 
-这一步**只安装 mst**。在交互终端中，成功变更后会在当前窗口启动新的 Zsh 登录会话，随即可以使用 `mst`。退出后可能回到原会话。
+轻量引导会下载一份源码快照，安装 **mst** 并同步普通工具脚本到本地仓库，**不会启用工具**。在交互终端中，成功变更后会在当前窗口启动新的 Zsh 登录会话，随即可以使用 `mst`。退出后可能回到原会话。
 
 随后可在任意目录查看并选择工具：
 
@@ -31,11 +31,11 @@ mst install dsize
 | 命令 | 行为 |
 | --- | --- |
 | `mst list` | 离线查看工具、安装状态、已安装和可用版本 |
-| `mst install dsize` | 安装或更新指定工具，同时刷新 mst 和工具目录 |
-| `mst install --all` | 安装或更新全部可用工具 |
-| `mst update` | 仅更新已安装工具 |
+| `mst install dsize` | 从本地仓库安装或重新安装指定工具 |
+| `mst install --all` | 从本地仓库安装全部可用工具 |
+| `mst update` | 同步最新脚本，再更新已安装工具 |
 | `mst update dsize` | 更新指定的已安装工具 |
-| `mst upgrade` | 升级 mst 和可用工具目录，保留已安装工具 |
+| `mst upgrade` | 升级 mst 并同步工具脚本，保留已安装工具 |
 | `mst uninstall dsize` | 卸载指定工具，删除前备份 |
 | `mst uninstall --all` | 卸载全部已登记工具，保留 mst |
 | `mst config language` | 查看保存的语言，默认英文 |
@@ -43,7 +43,7 @@ mst install dsize
 | `mst config language zh-CN` | 将 mst 和工具的语言保存为简体中文 |
 | `mst --help` | 查看命令和参数 |
 
-`install`、`update` 和 `upgrade` 从 GitHub `main` 获取最新安装包；`list` 和 `uninstall` 离线可用。项目发布新工具后，执行 `mst upgrade`，再通过 `mst list` 查看、`mst install <工具名>` 选择安装。`upgrade` 和 `update` 不会安装新工具，也不会重新安装已卸载的工具。
+`upgrade` 和 `update` 从 GitHub `main` 同步源码快照。普通工具的 `install`、`list` 和 `uninstall` 离线可用；声明了额外在线资源的工具在安装时联网下载并校验资源。项目发布新工具后，执行 `mst upgrade`，再通过 `mst list` 查看、`mst install <工具名>` 选择安装。`upgrade` 和 `update` 不会安装新工具，也不会重新安装已卸载的工具。
 
 工具命令支持同时传入多个名称。`install` 不带名称时表示全部可用工具，`update` 不带名称时表示全部已安装工具。`--all` 不能与工具名混用。
 
@@ -65,6 +65,7 @@ mst install dsize
 ~/.config/zsh/mac-shell-tools/
 ├── init.zsh              # 集中入口，由 .zshrc 引用
 ├── manager/              # mst、管理器版本和语言包
+├── repository/           # 已同步的清单及全部工具脚本，不会自动加载
 ├── tools/
 │   ├── installed.list    # 已安装工具及版本清单
 │   ├── dsize/            # 每个工具独立存放源码、版本和语言包

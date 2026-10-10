@@ -1,5 +1,5 @@
 #!/bin/sh
-# Deterministic self-contained bootstrap, with explicit source provenance.
+# Generate only the small bootstrap and data-only source provenance record.
 set -eu
 script_dir=$(CDPATH= cd -P "$(dirname "$0")" && pwd)
 project_dir=$(CDPATH= cd -P "$script_dir/.." && pwd)
@@ -9,33 +9,25 @@ case $mode in build|--check|--refresh-revision) ;; *) printf '%s\n' 'Usage: sh s
 build_directory=$(mktemp -d "${TMPDIR:-/tmp}/mac-shell-tools-build.XXXXXX")
 trap 'rm -rf "$build_directory"' 0
 trap 'exit 1' HUP INT TERM
-manager="$build_directory/manager-core.sh"
-generated="$build_directory/install.sh"
-payload="$build_directory/payload"
-mkdir -p "$payload/manager/locales" "$payload/tools"
 base_version=$(cat "$project_dir/VERSION")
 printf '%s\n' "$base_version" | awk '/^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$/ {ok=1} END {exit !ok}' || {
   printf 'Invalid VERSION: %s\n' "$base_version" >&2; exit 1;
 }
-tool_files=
+source_files='VERSION LICENSE lib/i18n.sh lib/mst.zsh lib/manager.sh lib/repository.sh locales/en.sh locales/zh-CN.sh tools/init.zsh scripts/tools.list scripts/build-installer.sh scripts/bootstrap.sh.in'
 seen_files=' init.zsh mst.zsh '
-source_files='VERSION LICENSE lib/i18n.sh lib/mst.zsh locales/en.sh locales/zh-CN.sh tools/init.zsh scripts/tools.list scripts/build-installer.sh scripts/installer.sh.in scripts/bootstrap.sh.in'
 for tool_file in $(cat "$script_dir/tools.list"); do
-  case $tool_file in
-    [!a-z0-9]*|*[!a-z0-9.-]*|.*|*..*|'') printf 'Invalid tool filename: %s\n' "$tool_file" >&2; exit 1 ;;
-    *.zsh) ;;
-    *) printf 'Expected .zsh: %s\n' "$tool_file" >&2; exit 1 ;;
-  esac
+  case $tool_file in *.zsh) ;; *) printf 'Expected .zsh: %s\n' "$tool_file" >&2; exit 1 ;; esac
   tool_name=${tool_file%.zsh}
-  case $tool_name in *[!a-z0-9-]*|'') printf 'Invalid tool id: %s\n' "$tool_name" >&2; exit 1 ;; esac
+  case $tool_name in ''|[!a-z0-9]*|*[!a-z0-9-]*) printf 'Invalid tool id: %s\n' "$tool_name" >&2; exit 1 ;; esac
   case $seen_files in *" $tool_file "*) printf 'Duplicate/reserved tool: %s\n' "$tool_file" >&2; exit 1 ;; esac
   seen_files="$seen_files$tool_file "
-  source_component="$project_dir/tools/$tool_name"
-  [ -f "$source_component/$tool_file" ] || { printf 'Missing source: %s\n' "$source_component/$tool_file" >&2; exit 1; }
-  tool_files="$tool_files $tool_file"
+  component="$project_dir/tools/$tool_name"
+  [ -f "$component/$tool_file" ] && [ ! -L "$component" ] && [ ! -L "$component/$tool_file" ] || {
+    printf 'Missing or linked source: %s\n' "$component/$tool_file" >&2; exit 1;
+  }
   source_files="$source_files tools/$tool_name/$tool_file"
-  for catalog in en zh-CN; do
-    if [ -f "$source_component/locales/$catalog.sh" ]; then source_files="$source_files tools/$tool_name/locales/$catalog.sh"; fi
+  for asset in locales/en.sh locales/zh-CN.sh install.mode downloads.list; do
+    if [ -f "$component/$asset" ]; then source_files="$source_files tools/$tool_name/$asset"; fi
   done
 done
 if command -v sha256sum >/dev/null 2>&1; then
@@ -43,8 +35,7 @@ if command -v sha256sum >/dev/null 2>&1; then
 elif command -v shasum >/dev/null 2>&1; then
   sha256() { shasum -a 256 "$@"; }
 else
-  printf '%s\n' 'Building requires sha256sum or shasum.' >&2
-  exit 1
+  printf '%s\n' 'Building requires sha256sum or shasum.' >&2; exit 1
 fi
 source_digest=$(
   CDPATH= cd -P "$project_dir"
@@ -53,11 +44,7 @@ source_digest=$(
 source_revision=unknown
 source_state=unknown
 saved_digest=
-if [ -f "$project_dir/install.sh" ]; then
-  saved_digest=$(awk '/^# Source digest: / {print $4; exit}' "$project_dir/install.sh")
-fi
-# --check reuses the recorded provenance; comparing with HEAD would invalidate a
-# generated artifact merely because its publication commit was created later.
+if [ -f "$project_dir/install.sh" ]; then saved_digest=$(awk '/^# Source digest: / {print $4; exit}' "$project_dir/install.sh"); fi
 reuse_provenance=no
 case $mode in
   --check) reuse_provenance=yes ;;
@@ -76,80 +63,34 @@ case $source_revision in unknown) ;; ''|*[!0-9a-f]*) printf '%s\n' 'Invalid sour
 case $source_state in clean|modified|unknown) ;; *) printf '%s\n' 'Invalid source state.' >&2; exit 1 ;; esac
 package_version=$base_version
 case $base_version in *-*) short_digest=$(printf '%.12s' "$source_digest"); package_version="$base_version+$short_digest" ;; esac
-
-with_license() {
+{
   printf '%s\n' '#!/bin/sh'
   sed -e 's/^/# /' -e 's/^# $/#/' "$project_dir/LICENSE"
-}
-with_license > "$manager"
-cat "$project_dir/lib/i18n.sh" "$project_dir/locales/en.sh" "$project_dir/locales/zh-CN.sh" >> "$manager"
-printf "\npackage_version='%s'\npackage_revision='%s'\npackage_state='%s'\n" \
-  "$package_version" "$source_revision" "$source_state" >> "$manager"
-sed '1d' "$script_dir/installer.sh.in" >> "$manager"
-cp "$project_dir/tools/init.zsh" "$payload/init.zsh"
-cp "$project_dir/lib/mst.zsh" "$payload/manager/mst.zsh"
-cp "$project_dir/lib/i18n.sh" "$payload/manager/i18n.sh"
-cp "$project_dir/locales/"*.sh "$payload/manager/locales/"
-for tool_file in $tool_files; do
-  tool_name=${tool_file%.zsh}
-  destination="$payload/tools/$tool_name"
-  mkdir -p "$destination"
-  sed -e "s/@MST_VERSION@/$package_version/g" -e "s/@MST_REVISION@/$source_revision/g" \
-    -e "s/@MST_STATE@/$source_state/g" "$project_dir/tools/$tool_name/$tool_file" > "$destination/$tool_file"
-  printf '%s\n%s\n%s\n' "$package_version" "$source_revision" "$source_state" > "$destination/version"
-  printf '%s\n' "$tool_file" version > "$destination/files.list"
-  if [ -d "$project_dir/tools/$tool_name/locales" ]; then
-    mkdir "$destination/locales"
-    cp "$project_dir/lib/i18n.sh" "$destination/i18n.sh"
-    printf '%s\n' i18n.sh >> "$destination/files.list"
-    for catalog in en zh-CN; do
-      if [ -f "$project_dir/tools/$tool_name/locales/$catalog.sh" ]; then
-        cp "$project_dir/tools/$tool_name/locales/$catalog.sh" "$destination/locales/$catalog.sh"
-        printf 'locales/%s.sh\n' "$catalog" >> "$destination/files.list"
-      fi
-    done
-  fi
+  printf '# Package version: %s\n# Source revision: %s\n# Source state: %s\n# Source digest: %s\n' \
+    "$package_version" "$source_revision" "$source_state" "$source_digest"
+  sed '1d' "$script_dir/bootstrap.sh.in"
+} > "$build_directory/install.sh"
+printf '%s\n%s\n%s\n%s\n' "$package_version" "$source_revision" "$source_state" "$source_digest" > "$build_directory/package.meta"
+/bin/sh -n "$build_directory/install.sh"
+# Validate source metadata using the same parser as installation.
+/bin/sh -c '
+  . "$1/lib/manager.sh"
+  . "$1/lib/i18n.sh"
+  . "$1/locales/en.sh"
+  . "$1/lib/repository.sh"
+  source_directory=$1
+  load_source_catalog
+' -- "$project_dir"
+for generated_file in install.sh package.meta; do
+  case $mode in
+    --check)
+      cmp -s "$build_directory/$generated_file" "$project_dir/$generated_file" || {
+        printf '%s is stale; run sh scripts/build-installer.sh.\n' "$generated_file" >&2; exit 1;
+      } ;;
+    build|--refresh-revision)
+      if ! cmp -s "$build_directory/$generated_file" "$project_dir/$generated_file"; then
+        cat "$build_directory/$generated_file" > "$project_dir/$generated_file"
+      fi ;;
+  esac
 done
-printf '\n%s\n' 'write_payload() {' >> "$manager"
-emit_file() {
-  relative=$1
-  source_file="$payload/$relative"
-  if awk '$0 == "MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C" {found=1} END {exit !found}' "$source_file"; then
-    printf 'Embedded delimiter collision: %s\n' "$relative" >&2; exit 1
-  fi
-  parent=${relative%/*}
-  if [ "$parent" != "$relative" ]; then printf '  mkdir -p "$stage/payload/%s" || return 1\n' "$parent" >> "$manager"; fi
-  printf '  cat > "$stage/payload/%s" <<\047MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C\047 || return 1\n' "$relative" >> "$manager"
-  cat "$source_file" >> "$manager"
-  printf '%s\n' 'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' >> "$manager"
-}
-printf '%s\n' '  mkdir -p "$stage/payload" || return 1' >> "$manager"
-for relative in init.zsh manager/mst.zsh manager/i18n.sh manager/locales/en.sh manager/locales/zh-CN.sh; do emit_file "$relative"; done
-for tool_file in $tool_files; do
-  tool_name=${tool_file%.zsh}
-  while IFS= read -r relative; do emit_file "tools/$tool_name/$relative"; done < "$payload/tools/$tool_name/files.list"
-  emit_file "tools/$tool_name/files.list"
-done
-printf '%s\n' '}' >> "$manager"
-printf "\ntool_files='%s'\n" "$tool_files" >> "$manager"
-/bin/sh -n "$manager"
-if awk '$0 == "MAC_SHELL_TOOLS_MANAGER_7D4C" {found=1} END {exit !found}' "$manager"; then
-  printf '%s\n' 'Bootstrap delimiter collision.' >&2; exit 1
-fi
-with_license > "$generated"
-printf '# Package version: %s\n# Source revision: %s\n# Source state: %s\n# Source digest: %s\n' \
-  "$package_version" "$source_revision" "$source_state" "$source_digest" >> "$generated"
-sed '1d' "$script_dir/bootstrap.sh.in" >> "$generated"
-printf '\n%s\n' 'write_manager_payload() {' >> "$generated"
-printf '%s\n' '  cat > "$bootstrap_directory/manager-core.sh" <<'\''MAC_SHELL_TOOLS_MANAGER_7D4C'\'' || return 1' >> "$generated"
-cat "$manager" >> "$generated"
-printf '%s\n' 'MAC_SHELL_TOOLS_MANAGER_7D4C' '}' 'bootstrap_main "$@"' >> "$generated"
-/bin/sh -n "$generated"
-case $mode in
-  --check)
-    cmp -s "$generated" "$project_dir/install.sh" || { printf '%s\n' 'install.sh is stale; run sh scripts/build-installer.sh.' >&2; exit 1; }
-    printf '%s\n' 'install.sh matches its canonical sources.' ;;
-  build|--refresh-revision)
-    if ! cmp -s "$generated" "$project_dir/install.sh"; then cat "$generated" > "$project_dir/install.sh"; fi
-    printf 'Generated install.sh (%s).\n' "$package_version" ;;
-esac
+printf 'Bootstrap and source metadata %s (%s).\n' "$mode" "$package_version"

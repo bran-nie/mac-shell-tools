@@ -20,6 +20,11 @@ mst_text_zh_CN() {
     error.markers) printf '%s\n' '管理标记损坏或重复：%s' ;;
     error.unknown_entry) printf '%s\n' '已有入口没有可识别的管理块：%s' ;;
     error.state) printf '%s\n' '安装清单记录无效或重复：%s' ;;
+    error.metadata) printf '%s\n' '版本信息无效或缺失：%s' ;;
+    error.catalog) printf '%s\n' '工具目录清单无效：%s' ;;
+    error.repository) printf '%s\n' '本地工具仓库缺失；请运行 mst upgrade 同步。' ;;
+    error.download_manifest) printf '%s\n' '在线资源清单无效：%s' ;;
+    error.checksum) printf '%s\n' '下载资源的校验值不匹配：%s' ;;
     error.assets) printf '%s\n' '工具文件清单无效：%s' ;;
     error.available) printf '%s\n' '当前安装包不提供工具：%s' ;;
     error.not_installed) printf '%s\n' '工具尚未安装：%s' ;;
@@ -32,7 +37,7 @@ mst_text_zh_CN() {
     error.enter) printf '%s\n' '无法进入目录：%s' ;;
     error.lock) printf '%s\n' '无法取得安装锁；确认没有其他操作运行后再处理：%s' ;;
     error.stage) printf '%s\n' '无法创建暂存目录。' ;;
-    error.payload) printf '%s\n' '无法准备内嵌文件。' ;;
+    error.payload) printf '%s\n' '无法准备本地工具仓库。' ;;
     error.readonly) printf '%s\n' '文件不可写：%s' ;;
     error.parent) printf '%s\n' '目录不可写或无法进入：%s' ;;
     error.backup) printf '%s\n' '无法创建完整备份：%s' ;;
@@ -68,12 +73,12 @@ mst_text_zh_CN() {
       sh install.sh [命令] [工具名 ...] [参数]
 
 命令：
-  install [工具名 ...]     安装指定工具；不指定时安装全部工具。
-  update [工具名 ...]      仅更新已安装工具。
+  install [工具名 ...]     从本地仓库安装；不指定时安装全部工具。
+  update [工具名 ...]      先同步，再更新已安装工具。
   uninstall 工具名 ...    卸载指定工具，删除前备份。
   uninstall --all         卸载全部工具，保留 mst。
   list                    查看本地可用工具、安装状态和版本。
-  upgrade                 升级 mst 和可用工具目录，保留已安装工具。
+  upgrade                 升级 mst 并同步脚本，保留已安装工具。
   version                 查看 mst 的版本和源码修订。
   config language         查看已保存的语言，默认 en。
   config language en      为 mst 和工具保存英文设置。
@@ -88,7 +93,8 @@ mst_text_zh_CN() {
   -h, --help              查看帮助。
 
 不带命令运行 install.sh 时只安装 mst。
-安装后的 mst install/update/upgrade 从 GitHub 获取最新安装包。
+mst upgrade/update 从 GitHub 同步最新源码快照。
+普通 mst install 离线安装；在线工具下载清单声明的资源。
 RUNZSH=no 也可关闭新的登录会话。
 语言设置在下次调用时生效，无需启动新会话。' ;;
     *) return 1 ;;

@@ -311,6 +311,10 @@ assert_functions 0 1
 run 0 uninstall --all
 [ ! -e "$test_home/.zshrc" ] && [ ! -e "$install_directory/tools/other/other.zsh" ] || fail '自定义路径卸载错误'
 
+mkdir "$test_directory/mock"
+mock_release_curl "$test_directory/mock"
+export PATH="$test_directory/mock:$PATH"
+export MST_RELEASE="$installer"
 new_home stdin-arguments
 if cat "$installer" | env HOME="$test_home" XDG_CONFIG_HOME= ZDOTDIR= /bin/sh -s -- install other \
     > "$test_directory/out" 2> "$test_directory/err"; then checks=$((checks + 1)); else fail 'stdin 参数失败'; fi

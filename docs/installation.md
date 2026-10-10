@@ -4,7 +4,7 @@
 
 ## Supported systems and Zsh
 
-Supports macOS and Linux. Zsh is required for mst, tools, and completion; Oh My Zsh is optional. Linux requires GNU Coreutils or commands supporting the same tool options (`du -h -d`, `sort -h`, and `tail -n` for dsize), plus curl for online operations.
+Supports macOS and Linux. Zsh is required for mst, tools, and completion; Oh My Zsh is optional. Linux requires GNU Coreutils or commands supporting the same tool options (`du -h -d`, `sort -h`, and `tail -n` for dsize), plus curl and tar for online synchronization.
 
 On Ubuntu 24.04 LTS, prepare missing dependencies with:
 
@@ -19,7 +19,7 @@ The shared entry checks the running shell's completion state when loaded. In int
 
 ## Install the manager, then tools
 
-The recommended GitHub command in the project README runs the self-contained `install.sh` without arguments. This installs mst and its shared loader, with no tools enabled. Then run:
+The recommended GitHub command in the project README runs the lightweight `install.sh` without arguments. It downloads one source snapshot, installs mst and its shared loader, and synchronizes ordinary scripts into a separate local repository, with no tools enabled. Then run:
 
 ```sh
 mst list
@@ -33,19 +33,21 @@ mst install dsize
 | Command | Source and effect |
 | --- | --- |
 | `mst list` | Read the local catalog and installed-tool manifest |
-| `mst install <tool>` | Fetch the latest package, install selected tools, and refresh the manager |
-| `mst install --all` | Fetch the latest package and install every available tool |
-| `mst update [tool ...]` | Fetch the latest package and update installed tools only; keep the manager version |
-| `mst upgrade` | Fetch the latest manager and catalog; leave tool files and installed-tool selection unchanged |
+| `mst install <tool>` | Install from the local repository; online tools additionally download declared resources |
+| `mst install --all` | Install all tools from the local repository; online tools additionally download resources |
+| `mst update [tool ...]` | Synchronize the latest snapshot, then update installed tools only; keep the manager version |
+| `mst upgrade` | Upgrade mst and synchronize catalog/scripts; leave installed tools and versions unchanged |
 | `mst uninstall <tool>` / `mst uninstall --all` | Remove registered tools offline; retain mst |
 
-Online operations fetch [the GitHub main installation package](https://raw.githubusercontent.com/bran-nie/mac-shell-tools/main/install.sh). The complete download is checked for content, shell syntax, and the supported bootstrap marker before it runs or writes configuration. A failed or invalid download leaves existing managed files unchanged.
+Online synchronization fetches the [lightweight bootstrap](https://raw.githubusercontent.com/bran-nie/mac-shell-tools/main/install.sh), then a single [GitHub main source snapshot](https://codeload.github.com/bran-nie/mac-shell-tools/tar.gz/refs/heads/main). Archive paths, links and entry types are checked before extraction; manager and tool syntax and manifests are checked before writes. A failed or invalid download leaves existing managed files unchanged.
 
 `mst list` uses the last saved catalog. Run `mst upgrade` to discover newly published tools, then install the ones you want. Neither `upgrade` nor `update` installs new or previously removed tools. An `update` with no installed tools is a local no-op.
 
 Tool commands accept multiple names. `install` without names means all available tools; `update` without names means all installed tools. `--all` selects all for the operation and cannot be combined with names. `uninstall` requires names or `--all`; `upgrade` and `list` accept neither.
 
-For local or single-file distribution, `sh install.sh` installs mst only. Explicit commands such as `sh install.sh install dsize` use the files embedded in that copy of the script. Installed `mst` uses the online behavior above.
+In a complete checkout, `sh install.sh` uses the separate local source files without network access. Explicit commands such as `sh install.sh install dsize` synchronize those files and install the selected tool. A standalone or piped `install.sh` downloads a source snapshot; it no longer embeds tools. For offline distribution, copy the full checkout, including generated `package.meta`.
+
+Synchronization and installation are separate: `repository/` holds available scripts and catalog metadata; `tools/` holds active installed versions. `mst upgrade` neither downloads online tool resources nor changes installed tools. A script that accesses the network at runtime can still install offline; only explicitly declared installation resources require additional downloads.
 
 ## Paths and ownership
 
@@ -56,6 +58,7 @@ For local or single-file distribution, `sh install.sh` installs mst only. Explic
 | Manager library | `<root>/manager/manager-core.sh` |
 | Launcher and Zsh function | `<root>/manager/mst.sh` and `mst.zsh` |
 | Manager version and language packs | `<root>/manager/version` and `locales/` |
+| Local tool repository | `<root>/repository/`, with `catalog.tsv`, version records, and independent tool scripts |
 | Tool bundle | `<root>/tools/<name>/`, including source, `version`, `files.list`, and language packs |
 | Installed-tool manifest | `<root>/tools/installed.list` |
 | Saved preferences | `<root>/config.conf` |
@@ -97,7 +100,7 @@ Preferences are validated data, never sourced as shell code. Unsupported values 
 
 Releases use `MAJOR.MINOR.PATCH` and Git tags `vX.Y.Z`. Unreleased builds use versions such as `0.1.0-dev+<source-digest>`. A development snapshot may have source state `modified`; without Git provenance it records `unknown`. The source revision describes the build's source snapshot, which may precede the generated-package publication commit.
 
-`mst list` shows installed and available source versions separately. `mst upgrade` changes mst and its local catalog; `mst update` changes installed tool bundles and their version records. Online commands fetch the published `main` package, rather than selecting a release by comparing version numbers.
+`mst list` shows installed and available source versions separately. `mst upgrade` changes mst and its local catalog; `mst update` changes installed tool bundles and their version records. Online synchronization fetches a source snapshot from `main`, rather than selecting a release by comparing version numbers.
 
 ## Migrating the previous layout
 

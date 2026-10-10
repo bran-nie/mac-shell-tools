@@ -255,7 +255,11 @@ for backup in "$install_directory"/backups/zshrc/.zshrc.bak.*; do
 done
 rm "$test_directory/mock/cat"
 
-# 单文件与 stdin 模式均不依赖源码所在目录。
+# Standalone and stdin bootstraps fetch the independent source snapshot.
+mock_release_curl "$test_directory/mock"
+export PATH="$test_directory/mock:$PATH"
+export MST_RELEASE="$project_dir/install.sh"
+
 new_home standalone
 mkdir "$test_directory/share"
 cp "$installer" "$test_directory/share/standalone.sh"

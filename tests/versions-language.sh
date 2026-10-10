@@ -56,14 +56,7 @@ printf '\n# Next tool release\n' >> "$fixture/tools/dsize/dsize.zsh"
 printf '\n# Next tool catalog\n' >> "$fixture/tools/dsize/locales/en.sh"
 printf '\n# Next manager catalog\n' >> "$fixture/locales/en.sh"
 sh "$fixture/scripts/build-installer.sh" > "$test_directory/build"
-cat > "$test_directory/mock/curl" <<'MOCK'
-#!/bin/sh
-set -eu
-while [ "$#" -gt 0 ]; do
-  case $1 in -o) output=$2; shift 2 ;; *) shift ;; esac
-done
-cp "$MST_RELEASE" "$output"
-MOCK
+mock_release_curl "$test_directory/mock"
 chmod +x "$test_directory/mock/curl"
 run 0 install dsize
 [ "$(sed -n '1p' "$manager_directory/version")" = "$package_version" ] || fail 'manager version record'

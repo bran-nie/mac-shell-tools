@@ -1,5 +1,5 @@
 #!/bin/sh
-# Exercise the actual three-tool package, using only its embedded local payload.
+# Exercise the actual three-tool package, using its separate local source files.
 set -eu
 project_dir=$1
 test_directory=$(mktemp -d "${TMPDIR:-/tmp}/mac-shell-tools-catalog-test.XXXXXX")

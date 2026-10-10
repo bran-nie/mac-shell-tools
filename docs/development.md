@@ -11,14 +11,16 @@
 | `lib/mst.zsh` | 任意目录可用的 Zsh 管理函数，定位已安装启动器 |
 | `lib/i18n.sh`、`locales/` | 纯数据配置读取、语言选择和管理器文案 |
 | `scripts/tools.list` | 可用工具文件名，不含保留的 init.zsh 和 mst.zsh |
-| `scripts/installer.sh.in` | 引导与常驻管理器共用的 POSIX sh 实现 |
-| `scripts/bootstrap.sh.in` | 展开管理器载荷并委托共享实现 |
-| `scripts/build-installer.sh` | 打包组件、版本、语言包及完整 MIT 声明 |
-| `install.sh` | 自包含生成产物，不手动修改 |
+| `lib/manager.sh` | 引导与常驻管理器共用的 POSIX sh 实现 |
+| `lib/repository.sh` | 独立工具仓库同步、组件渲染及在线资源安装 |
+| `scripts/bootstrap.sh.in` | 定位本地源码或下载源码归档，委托共享管理器 |
+| `scripts/build-installer.sh` | 生成轻量引导及纯数据来源记录，不嵌入工具 |
+| `install.sh` | 轻量引导生成产物，不手动修改 |
+| `package.meta` | 四行纯数据：版本、来源提交、源码状态、摘要 |
 | `tests/` | 使用平台原生命令及隔离 HOME 的 macOS / Linux 验证 |
 | `docs/tools/<名称>/` | 每个工具独立的英文及中文文档 |
 
-运行工具、查询和卸载不需要网络；安装、工具更新及管理器升级使用系统 curl。工具使用系统命令：dsize 依赖 du/sort/tail，portwho 依赖 lsof，extract 按格式依赖 tar 或支持 ZipInfo 的 unzip。无需额外运行时；完整测试额外使用 Python 3 创建回环监听及压缩包边界用例，使用 zip 创建加密测试包，两者不是工具运行依赖。
+普通工具安装、查询和卸载不需要网络；源码同步使用系统 curl 和 tar。在线工具只在安装或更新时下载其声明的额外资源。工具使用系统命令：dsize 依赖 du/sort/tail，portwho 依赖 lsof，extract 按格式依赖 tar 或支持 ZipInfo 的 unzip。无需额外运行时；完整测试额外使用 Python 3 创建回环监听及压缩包边界用例，使用 zip 创建加密测试包，两者不是工具运行依赖。
 
 ## 修改与生成
 
@@ -37,13 +39,13 @@ sh scripts/build-installer.sh --check
 
 生成过程使用基础 Shell 工具，SHA-256 优先使用 sha256sum，缺少时使用 shasum；安装后的运行时不需要这两个构建命令。不嵌入时间或绝对机器路径。源码相同时，常规构建复用已记录的提交来源，结果可重复。检查使用同一来源重新生成并比较全部内容，发布生成产物后的新提交不会让检查误报过期。
 
-工具清单每行一个 .zsh 文件名，标识以小写字母或数字开头，仅允许小写字母、数字和连字符。不放注释、重复项、路径或保留文件名。生成器检查两层 heredoc 分隔符冲突，并检查管理器与引导脚本语法；提交时包含同步生成的 install.sh。
+工具清单每行一个 .zsh 文件名，标识以小写字母或数字开头，仅允许小写字母、数字和连字符。不放注释、重复项、路径或保留文件名。生成器使用运行时解析器校验工具清单、安装方式和在线资源清单，并检查引导脚本语法；提交时包含同步生成的 install.sh 和 package.meta。新增工具只改变来源记录，不增加引导逻辑或源码载荷。
 
 ## 版本与发布
 
 根目录 VERSION 是唯一的发布版本来源，当前为 `0.1.0-dev`。采用 MAJOR.MINOR.PATCH：正式稳定版本的破坏性接口变更提升主版本，兼容功能增加提升次版本，修复提升修订号。开发阶段保留 -dev；首次正式发布使用 0.1.0，后续 0.x 的不兼容调整提升次版本并说明。
 
-开发包附加 12 位源码摘要，例如 `0.1.0-dev+0123456789ab`，涵盖受控运行时源码、版本、清单、生成脚本和许可。包头记录完整摘要、来源 Git 提交及 clean / modified / unknown 状态。工具版本常量在构建时替换，以便 --version 表示当前已加载的函数，而非磁盘上可能已经更新的文件。源码直接加载显示 `development (unbuilt; unknown)`。
+开发包附加 12 位源码摘要，例如 `0.1.0-dev+0123456789ab`，涵盖受控运行时源码、版本、清单、生成脚本和许可。包头记录完整摘要、来源 Git 提交及 clean / modified / unknown 状态。工具版本常量在同步到本地工具仓库时替换，以便 --version 表示当前已加载的函数，而非磁盘上可能已经更新的文件。源码直接加载显示 `development (unbuilt; unknown)`。
 
 普通开发构建如实标记尚未提交的源码；`--refresh-revision` 显式刷新来源记录。没有 Git 信息的源码包记录 unknown。来源提交是构建依据的源码快照，可以早于生成安装包的发布提交，不冒充后者。
 
@@ -52,11 +54,11 @@ sh scripts/build-installer.sh --check
 1. 更新 VERSION 为 X.Y.Z，整理更新记录，构建并完成目标平台门禁。
 2. 提交受控源码，确保这些源文件干净；生成产物可以留到下一步提交。
 3. 执行 `sh scripts/build-installer.sh --refresh-revision`，再次运行门禁，核对包头的版本、来源提交和 clean 状态。
-4. 提交生成的 install.sh，为发布提交打 vX.Y.Z 标签并发布。随后将 VERSION 改为下一版本的 -dev。生成脚本不自动提交、打标签或推送。
+4. 提交生成的 install.sh 和 package.meta，为发布提交打 vX.Y.Z 标签并发布。随后将 VERSION 改为下一版本的 -dev。生成脚本不自动提交、打标签或推送。
 
 `manager/version` 与 `tools/<名称>/version` 各保存三行：来源版本、来源提交、源码状态。`tools/installed.list` 每行以 Tab 分隔记录工具文件名和上述三项，未知来源写 unknown。版本表示组件来自哪个项目包，不为各工具维护独立发布序列。
 
-mst upgrade 不改工具版本；mst update 更新工具源码、版本和配套语言包。mst list 的可用版本来自本地管理器目录；在线命令获取 main 的最新包，不按版本比较选取发布。
+mst upgrade 不改工具版本；mst update 更新工具源码、版本和配套语言包。mst list 的可用版本来自 repository/tools/<名称>/version，与管理器版本独立；在线同步获取 main 的源码快照，不按版本比较选取发布。
 
 ## 语言包
 
@@ -64,21 +66,36 @@ mst upgrade 不改工具版本；mst update 更新工具源码、版本和配套
 
 lib/i18n.sh 按纯文本读取根 config.conf 的 language=en|zh-CN，不 source 配置。命令每次调用读取偏好，不缓存到父 Shell，因此语言切换不需要重新 source。管理器优先级为 --lang、MST_LANG、保存的偏好、英文；工具支持环境覆盖及保存的偏好。
 
-管理器引导使用内嵌语言包，安装后读取 manager/locales/。每个工具保存自己的共享帮助函数及语言包副本，随工具更新，避免管理器升级破坏旧工具的消息键。只翻译帮助、错误、状态及补全说明；数据、参数、工具标识及版本保持一致。
+管理器引导读取源码目录的独立语言包，安装后读取 manager/locales/。每个工具保存自己的共享帮助函数及语言包副本，随工具更新，避免管理器升级破坏旧工具的消息键。只翻译帮助、错误、状态及补全说明；数据、参数、工具标识及版本保持一致。
 
 ## 新增工具
 
 1. 新建 tools/<名称>/<名称>.zsh，定义函数和补全；内部函数使用项目及工具前缀。帮助与错误放入组件的 locales/en.sh 和 locales/zh-CN.sh，使用共享 i18n 接口。
 2. 在源码 init.zsh 的管理区显式 source，并检查文件存在；不要 glob 执行目录中的脚本。
-3. 将文件名加入 scripts/tools.list，重新生成 install.sh。生成器将源码、版本、files.list 及语言包打包为完整组件。
+3. 将文件名加入 scripts/tools.list，重新生成 install.sh 和 package.meta。同源码快照中的脚本、语言包及许可在同步时渲染成 repository/tools/<名称>/ 下的独立组件。
 4. 添加实际行为检查及工具独立的双语 README；根 README 表格只添加名称、简介和链接。
 5. 在工具声明支持的平台上运行完整门禁，确认 BSD / GNU 命令参数与行为。用户通过 mst upgrade 获取新工具目录，再按需 mst install <名称>。
 
 源码入口用于直接加载，安装器根据目标机器清单渲染，不会全量启用。管理测试临时生成双工具包，以发现选择安装错误。工具仅定义函数并注册必要补全；source 与补全时不扫描磁盘、不联网、不输出启动信息、不运行 compinit、不改变调用者的选项或工作目录。共享入口在交互式 Zsh 缺少 compdef 时运行标准 compinit；已有补全系统及非交互加载均跳过初始化。
 
+## 分发与本地工具仓库
+
+`install.sh` 只包含引导、下载和归档预检。远端执行时获取一个完整源码快照，在临时目录加载 `lib/manager.sh`；完整仓库本地执行时直接使用独立源文件。保留旧引导标记，使已经发布的管理器仍可通过 `mst upgrade` 升级。引导和常驻管理器都不内嵌工具源码。
+
+同步写入 `repository/catalog.tsv` 和 `repository/tools/<名称>/`，清单每行是工具文件名及安装方式（Tab 分隔）。组件拥有独立 `version`、`files.list`、语言包和 LICENSE。本地仓库缺失时可通过 mst upgrade 重新同步，卸载仍依据独立的安装记录工作。普通工具默认采用 `local` 安装方式，`mst install` 只从本地仓库复制并登记。`mst upgrade` 更新管理器及工具仓库，保留已安装文件和记录；`mst update` 先同步仓库，再更新选中的已安装组件，保留管理器。可用版本因此可以高于管理器版本。目录清单在其组件写入后发布，移除的受管资源会备份并清理，个人文件保留。
+
+需要额外下载资源时，在该工具目录添加单行 `install.mode`，内容为 `online`，并提供 `downloads.list`。每行四列，以 Tab 分隔：
+
+```text
+bin/client<TAB>https://example.org/client<TAB>64位小写SHA-256<TAB>executable
+assets/data<TAB>https://example.org/data<TAB>64位小写SHA-256<TAB>file
+```
+
+资源只允许 HTTPS，路径为组件内的安全相对路径；类型显式使用 `file` 或 `executable`。不能覆盖组件已有文件、脚本、文件清单或版本记录。安装先下载至暂存目录并校验 SHA-256，全部完成后才进入目标预检及写入；下载文件纳入组件所有权清单，更新与卸载一并处理。不执行安装钩子。同步仅保存声明，不下载在线资源。普通脚本的运行时联网行为不需要声明为在线安装。
+
 ## 安装配置契约
 
-支持 Darwin 和 Linux；Linux 使用 GNU Coreutils 或兼容命令，运行时依赖 Zsh，在线操作还依赖 curl。引导由 POSIX sh 执行，检查 Zsh 是否可用，不以 $SHELL 或引导解释器判断用户当前 Shell，不自动安装系统依赖或修改默认 Shell。
+支持 Darwin 和 Linux；Linux 使用 GNU Coreutils 或兼容命令，运行时依赖 Zsh，在线同步还依赖 curl 和 tar。引导由 POSIX sh 执行，检查 Zsh 是否可用，不以 $SHELL 或引导解释器判断用户当前 Shell，不自动安装系统依赖或修改默认 Shell。
 
 默认根目录为 `${XDG_CONFIG_HOME:-$HOME/.config}/zsh/mac-shell-tools`。manager/mst.sh 固定解析后的根目录及主配置路径，mst.zsh 根据自身位置找到它。首次引导和下载委托共用实现；.zshrc → init.zsh → manager/mst.zsh，启动时不联网。项目加载入口仅在 Zsh 中执行；交互式加载根据实时 compdef 状态决定是否初始化补全，不检查 Oh My Zsh 目录，不在安装时执行用户配置，重复加载复用已有补全与个人注册。
 
@@ -113,6 +130,7 @@ lib/i18n.sh 按纯文本读取根 config.conf 的 language=en|zh-CN，不 source
 - management：双工具包中的选择安装、更新与卸载、清单校验、缺失修复、资源归属及个人文件保护。
 - mst：任意目录入口、默认仅管理器、模拟在线发布、更新与升级分离、无效下载保留文件、固定自定义路径。
 - catalog：实际三工具包的选择安装、完整资源、版本、已加载函数语言切换和逐项卸载，保留个人文件及管理器。
+- repository：轻量引导大小、源码与启用版本隔离、普通工具离线重装、在线资源及校验失败、可执行权限、废弃资源清理和不安全归档拒绝。
 - versions-language：版本来源和独立记录、加载版本与磁盘版本、构建及发布可重复性、语言切换、优先级、回退、纯数据配置、消息键及格式参数一致性。
 - migration：原目录、原清单和旧会话兼容、自定义路径、不可用工具、相对个人引用、双锁、中断及恢复、冲突与缺失保护。
 - platform：模拟系统标识验证允许及拒绝分支、Bash 启动与加载边界、缺少 Zsh 时不写配置、非交互加载不初始化补全。模拟标识不代替真实 Linux 验证。

@@ -25,16 +25,7 @@ printf '\n# terminal release two\n' >> "$fixture/tools/dsize/dsize.zsh"
 printf '\n# terminal manager release two\n' >> "$fixture/lib/mst.zsh"
 sh "$fixture/scripts/build-installer.sh" > "$test_directory/build-log" || exit 1
 export MST_RELEASE="$fixture/install.sh"
-cat > "$test_directory/mock/curl" <<'MOCK'
-#!/bin/sh
-set -eu
-output=
-while [ "$#" -gt 0 ]; do
-  case $1 in -o) output=$2; shift 2 ;; *) shift ;; esac
-done
-[ -n "$output" ] || exit 90
-cp "$MST_RELEASE" "$output"
-MOCK
+mock_release_curl "$test_directory/mock"
 cat > "$test_directory/mock/zsh" <<'MOCK'
 #!/bin/sh
 case ${1:-} in

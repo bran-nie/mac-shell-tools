@@ -4,7 +4,7 @@
 
 A small Zsh tool manager for macOS and Linux. Install **mst** first, then choose the tools you need.
 
-Requires Zsh and standard system commands; online operations also require curl. On Linux, use GNU Coreutils or compatible commands. The shared loader reuses existing completion (including Oh My Zsh), or initializes it in interactive Zsh when needed. The manager installs into your user configuration directory without `sudo`. See [Ubuntu 24.04 prerequisites](docs/installation.md#supported-systems-and-zsh).
+Requires Zsh and standard system commands; online synchronization also requires curl and tar. On Linux, use GNU Coreutils or compatible commands. The shared loader reuses existing completion (including Oh My Zsh), or initializes it in interactive Zsh when needed. The manager installs into your user configuration directory without `sudo`. See [Ubuntu 24.04 prerequisites](docs/installation.md#supported-systems-and-zsh).
 
 ## Install mst
 
@@ -15,7 +15,7 @@ mac_shell_tools_installer="$(curl -fsSL "https://raw.githubusercontent.com/bran-
   sh -c "$mac_shell_tools_installer"
 ```
 
-This installs **mst only**. In an interactive terminal, a successful change starts a new login Zsh in the same window, making `mst` available immediately. Exiting it may return to the previous session.
+The lightweight bootstrap downloads one source snapshot, installs **mst**, and synchronizes ordinary scripts into a local repository. **No tools are enabled.** In an interactive terminal, a successful change starts a new login Zsh in the same window, making `mst` available immediately. Exiting it may return to the previous session.
 
 Then choose your tools, from any directory:
 
@@ -31,11 +31,11 @@ Use `mst install --all` if you want every available tool. You do not need to kee
 | Command | Behavior |
 | --- | --- |
 | `mst list` | Show tools, installation status, and installed/available versions, offline |
-| `mst install dsize` | Install or update selected tools; refresh mst and its catalog |
-| `mst install --all` | Install or update all available tools |
-| `mst update` | Update installed tools only |
+| `mst install dsize` | Install or reinstall selected tools from the local repository |
+| `mst install --all` | Install all available tools from the local repository |
+| `mst update` | Synchronize scripts, then update installed tools only |
 | `mst update dsize` | Update a selected installed tool |
-| `mst upgrade` | Upgrade mst and refresh its catalog, keeping installed tools unchanged |
+| `mst upgrade` | Upgrade mst and synchronize scripts, keeping installed tools unchanged |
 | `mst uninstall dsize` | Uninstall selected tools, with backups |
 | `mst uninstall --all` | Uninstall all registered tools; keep mst available |
 | `mst config language` | Show the saved language; default: English |
@@ -43,7 +43,7 @@ Use `mst install --all` if you want every available tool. You do not need to kee
 | `mst config language zh-CN` | Save Simplified Chinese for mst and tools |
 | `mst --help` | Show commands and options |
 
-`install`, `update`, and `upgrade` fetch the latest package from GitHub `main`. `list` and `uninstall` work offline. When new tools are published, run `mst upgrade`, then `mst list` and `mst install <tool>`. New tools are never installed by `upgrade` or `update`, and removed tools stay removed.
+`upgrade` and `update` synchronize a source snapshot from GitHub `main`. Ordinary `install`, `list`, and `uninstall` work offline. Tools declaring additional online resources download and verify those resources during installation. When new tools are published, run `mst upgrade`, then `mst list` and `mst install <tool>`. New tools are never installed by `upgrade` or `update`, and removed tools stay removed.
 
 Tool commands accept multiple names. `install` without names means all available tools; `update` without names means all installed tools. `--all` cannot be combined with names.
 
@@ -65,6 +65,7 @@ The default installation root is `~/.config/zsh/mac-shell-tools/`:
 ~/.config/zsh/mac-shell-tools/
 ├── init.zsh              # Shared loader, referenced by .zshrc
 ├── manager/              # mst, its version, and language packs
+├── repository/           # Synchronized catalog and scripts; never auto-loaded
 ├── tools/
 │   ├── installed.list    # Installed tools and their versions
 │   ├── dsize/            # Each installed tool has its own source, version,

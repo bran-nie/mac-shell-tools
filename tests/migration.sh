@@ -10,14 +10,7 @@ checks=0
 mkdir -p "$test_directory/mock"
 : > "$test_directory/out"
 : > "$test_directory/err"
-cat > "$test_directory/mock/curl" <<'MOCK'
-#!/bin/sh
-set -eu
-while [ "$#" -gt 0 ]; do
-  case $1 in -o) output=$2; shift 2 ;; *) shift ;; esac
-done
-cp "$MST_RELEASE" "$output"
-MOCK
+mock_release_curl "$test_directory/mock"
 chmod +x "$test_directory/mock/curl"
 
 fail() {

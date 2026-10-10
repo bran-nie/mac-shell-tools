@@ -17,24 +17,7 @@ printf '\n# release two\n' >> "$fixture/tools/dsize/dsize.zsh"
 printf '\n# manager release two\n' >> "$fixture/lib/mst.zsh"
 sh "$fixture/scripts/build-installer.sh" > "$test_directory/build"
 
-cat > "$test_directory/mock/curl" <<'MOCK'
-#!/bin/sh
-set -eu
-printf '%s\n' "$*" >> "$MST_CURL_LOG"
-output=
-while [ "$#" -gt 0 ]; do
-  case $1 in -o) output=$2; shift 2 ;; *) shift ;; esac
-done
-[ -n "$output" ] || exit 90
-case $MST_DOWNLOAD_MODE in
-  ok) cp "$MST_RELEASE" "$output" ;;
-  fail) printf 'simulated HTTP failure\n' >&2; exit 22 ;;
-  empty) : > "$output" ;;
-  html) printf '<html>not a release</html>\n' > "$output" ;;
-  syntax) printf '# mac-shell-tools bootstrap v1\nif (\n' > "$output" ;;
-  foreign) printf '#!/bin/sh\nexit 0\n' > "$output" ;;
-esac
-MOCK
+mock_release_curl "$test_directory/mock"
 chmod +x "$test_directory/mock/curl"
 download_mode=ok
 
@@ -132,7 +115,7 @@ grep -Eq '^other[[:space:]]+not installed[[:space:]]+' "$test_directory/out" || 
 run_mst 0 install dsize
 assert_functions 1 0
 tool_matches "$fixture" dsize "$install_directory/tools/dsize/dsize.zsh" || fail '在线安装未使用新版本'
-manager_identity=$(file_stat "$manager_directory/manager-core.sh")
+manager_identity=$(file_stat "$manager_directory/mst.zsh")
 state_identity=$(file_stat "$install_directory/tools/installed.list")
 
 # update 下载最新工具，但不会隐式升级管理器或安装新工具。
@@ -141,13 +124,13 @@ printf '\n# manager release three\n' >> "$fixture/lib/mst.zsh"
 sh "$fixture/scripts/build-installer.sh" > "$test_directory/build"
 run_mst 0 update
 tool_matches "$fixture" dsize "$install_directory/tools/dsize/dsize.zsh" || fail 'update 未获取最新工具'
-[ "$(file_stat "$manager_directory/manager-core.sh")" = "$manager_identity" ] || fail 'update 隐式升级管理器'
+[ "$(file_stat "$manager_directory/mst.zsh")" = "$manager_identity" ] || fail 'update 隐式升级管理器'
 [ "$(file_stat "$install_directory/tools/installed.list")" != "$state_identity" ] || fail 'update 未记录新的工具版本'
 state_identity=$(file_stat "$install_directory/tools/installed.list")
 [ ! -e "$install_directory/tools/other/other.zsh" ] || fail 'update 安装新工具'
 tool_identity=$(file_stat "$install_directory/tools/dsize/dsize.zsh")
 run_mst 0 upgrade --no-run-zsh
-[ "$(file_stat "$manager_directory/manager-core.sh")" != "$manager_identity" ] || fail 'upgrade 未升级管理器'
+[ "$(file_stat "$manager_directory/mst.zsh")" != "$manager_identity" ] || fail 'upgrade 未升级管理器'
 [ "$(file_stat "$install_directory/tools/dsize/dsize.zsh")" = "$tool_identity" ] || fail 'upgrade 修改已安装工具'
 [ "$(file_stat "$install_directory/tools/installed.list")" = "$state_identity" ] || fail 'upgrade 修改已安装清单'
 run_mst 0 upgrade
@@ -200,6 +183,7 @@ manager_directory="$install_directory/manager"
 zshrc="$test_zdot/.zshrc"
 run_bootstrap 0
 run_mst 0 list
+run_mst 0 upgrade
 run_mst 0 install other
 assert_functions 0 1
 [ ! -e "$test_home/.zshrc" ] || fail '自定义路径污染默认主配置'
@@ -220,7 +204,7 @@ run_mst 1 list
 # 流式引导也只安装 mst；无需原安装脚本即可在另一个目录查询。
 new_home stdin-bootstrap
 if cat "$project_dir/install.sh" | env HOME="$test_home" XDG_CONFIG_HOME= ZDOTDIR= \
-    TMPDIR="$test_directory/tmp" RUNZSH=no /bin/sh \
+    TMPDIR="$test_directory/tmp" RUNZSH=no PATH="$test_directory/mock:$PATH" MST_RELEASE="$project_dir/install.sh" /bin/sh \
     > "$test_directory/out" 2> "$test_directory/err"; then actual=0; else actual=$?; fi
 expected=0
 assert_status 流式引导

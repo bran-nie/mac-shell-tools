@@ -1,6 +1,6 @@
 #!/bin/sh
-# mac-shell-tools 共享管理器；引导安装与常驻 mst 共用此实现。
-# 由生成脚本打包运行时源码，管理器始终从文件加载。
+# mac-shell-tools runtime v2
+# 引导安装与常驻 mst 共用的管理逻辑；工具仓库通过独立文件同步。
 set -eu
 
 stage=
@@ -259,7 +259,16 @@ list_tools() {
     tool_status=$(message status.not_installed)
     installed_version=-
     available_version=-
-    if contains_file "$tool_files" "$listed_file"; then available_version=$package_version; fi
+    if contains_file "$tool_files" "$listed_file"; then
+      case $invocation_mode in
+        bootstrap) available_version=$package_version ;;
+        installed)
+          listed_component=$(available_component "$listed_file")
+          check_directory "$listed_component"
+          read_version_file "$listed_component/version" 3
+          available_version=$bundle_version ;;
+      esac
+    fi
     if contains_file "$installed_files" "$listed_file"; then
       tool_status=$(message status.installed)
       tool_target="$tools_directory/${listed_file%.zsh}/$listed_file"
@@ -353,7 +362,7 @@ prepare_manager() {
     printf '%s\n' '  printf "%s\n" "mst: Manager is missing or linked; re-run the GitHub installation command." >&2' '  exit 1' 'fi'
     printf '. %s\n' "$quoted_core"
     printf '%s\n' 'if [ "$#" -eq 0 ]; then set -- --help; fi'
-    printf 'main %s %s %s %s "$@"\n' "$quoted_core" "''" "$quoted_root" "$quoted_rc"
+    printf 'main %s %s %s %s %s "$@"\n' "$quoted_core" "''" "$quoted_root" "$quoted_rc" "''"
   } > "$stage/mst.sh"
   /bin/sh -n "$stage/mst.sh" || fail error.syntax "$stage/mst.sh"
   zsh -f -n "$stage/payload/manager/mst.zsh" || fail error.syntax "$stage/payload/manager/mst.zsh"
@@ -364,7 +373,7 @@ prepare_manager() {
 write_manager() {
   write_file "$manager_source" "$manager_directory/manager-core.sh"
   write_file "$stage/mst.sh" "$manager_directory/mst.sh"
-  for manager_asset in mst.zsh i18n.sh locales/en.sh locales/zh-CN.sh; do
+  for manager_asset in mst.zsh i18n.sh repository.sh LICENSE locales/en.sh locales/zh-CN.sh; do
     write_file "$stage/payload/manager/$manager_asset" "$manager_directory/$manager_asset"
   done
   write_file "$stage/manager-version" "$manager_directory/version"
@@ -427,7 +436,11 @@ write_file() {
   if [ -f "$target" ] && cmp -s "$prepared" "$target"; then return; fi
   backup_file "$target"
   pending_file=$(mktemp "${target%/*}/.mac-shell-tools.XXXXXX") || fail error.write "$target"
-  if [ -f "$target" ]; then cp -p "$target" "$pending_file" || fail error.write "$target"; fi
+  if [ -f "$target" ]; then
+    cp -p "$target" "$pending_file" || fail error.write "$target"
+  else
+    cp -p "$prepared" "$pending_file" || fail error.write "$target"
+  fi
   cat "$prepared" > "$pending_file" || fail error.write "$target"
   check_file "$target"
   mv -f "$pending_file" "$target" || fail error.write "$target"
@@ -469,17 +482,32 @@ finish() {
 }
 
 
-message() { mst_print_message "$language" "$@"; }
+message() {
+  if command -v mst_print_message >/dev/null 2>&1; then
+    mst_print_message "$language" "$@"
+  else
+    printf '%s\n' "$*"
+  fi
+}
 
 load_manager_catalogs() {
-  # Bootstrap uses embedded catalogs. The installed manager loads its own files
-  # so a missing translation can fall back to the English catalog.
-  if [ "$invocation_mode" = bootstrap ]; then return 0; fi
-  for catalog_asset in i18n.sh locales/en.sh locales/zh-CN.sh; do check_file "$manager_directory/$catalog_asset"; done
-  if [ -f "$manager_directory/i18n.sh" ]; then . "$manager_directory/i18n.sh"; fi
-  if [ -f "$manager_directory/locales/en.sh" ]; then . "$manager_directory/locales/en.sh"; fi
+  case $invocation_mode in
+    bootstrap)
+      runtime_library="$source_directory/lib"
+      runtime_locales="$source_directory/locales" ;;
+    installed)
+      runtime_library=${manager_source%/*}
+      runtime_locales="$runtime_library/locales" ;;
+  esac
+  for runtime_asset in "$runtime_library/i18n.sh" "$runtime_library/repository.sh" "$runtime_locales/en.sh" "$runtime_locales/zh-CN.sh"; do
+    check_file "$runtime_asset"
+  done
+  for runtime_asset in "$runtime_library/i18n.sh" "$runtime_library/repository.sh" "$runtime_locales/en.sh"; do
+    [ -f "$runtime_asset" ] || fail error.metadata "$runtime_asset"
+    . "$runtime_asset"
+  done
   unset -f mst_text_zh_CN
-  if [ -f "$manager_directory/locales/zh-CN.sh" ]; then . "$manager_directory/locales/zh-CN.sh"; fi
+  if [ -f "$runtime_locales/zh-CN.sh" ]; then . "$runtime_locales/zh-CN.sh"; fi
 }
 
 quote_path() {
@@ -574,6 +602,13 @@ prepare_component() {
   component_source=$1
   component_target=$2
   validate_assets "$component_source/files.list"
+  check_directory "$component_target"
+  prepare_obsolete_assets
+  while IFS= read -r obsolete_asset; do
+    check_managed_parents "$component_target/$obsolete_asset"
+    check_file "$component_target/$obsolete_asset"
+    if [ -f "$component_target/$obsolete_asset" ]; then preflight_target "$component_target/$obsolete_asset"; fi
+  done < "$stage/obsolete-assets"
   ensure_directory "$component_target"
   while IFS= read -r owned_asset; do
     asset_parent=${owned_asset%/*}
@@ -585,9 +620,21 @@ prepare_component() {
   preflight_write "$component_source/files.list" "$component_target/files.list"
 }
 
+prepare_obsolete_assets() {
+  : > "$stage/obsolete-assets"
+  check_file "$component_target/files.list"
+  if [ -f "$component_target/files.list" ]; then
+    validate_assets "$component_target/files.list"
+    awk 'NR == FNR {keep[$0]=1; next} !($0 in keep)' "$component_source/files.list" \
+      "$component_target/files.list" > "$stage/obsolete-assets"
+  fi
+}
+
 write_component() {
   component_source=$1
   component_target=$2
+  prepare_obsolete_assets
+  while IFS= read -r obsolete_asset; do remove_file "$component_target/$obsolete_asset"; done < "$stage/obsolete-assets"
   while IFS= read -r owned_asset; do
     write_file "$component_source/$owned_asset" "$component_target/$owned_asset"
   done < "$component_source/files.list"
@@ -657,12 +704,14 @@ resolve_locations() {
   zdot_directory=${zshrc%/*}
   manager_directory="$install_directory/manager"
   tools_directory="$install_directory/tools"
+  repository_directory="$install_directory/repository"
   backup_directory="$install_directory/backups"
   state_file="$tools_directory/installed.list"
   settings_file="$install_directory/config.conf"
   check_directory "$install_directory"
   check_directory "$manager_directory"
   check_directory "$tools_directory"
+  check_directory "$repository_directory"
   check_directory "$backup_directory"
   check_file "$manager_directory/legacy-root"
   check_file "$manager_directory/migration-complete"
@@ -765,9 +814,18 @@ main() {
   owned_bootstrap_directory=$2
   pinned_root=$3
   pinned_rc=$4
-  shift 4
+  source_directory=$5
+  shift 5
   invocation_mode=installed
-  if [ -n "$owned_bootstrap_directory" ]; then invocation_mode=bootstrap; fi
+  if [ -n "$source_directory" ]; then invocation_mode=bootstrap; fi
+  load_manager_catalogs
+  case $invocation_mode in
+    bootstrap) read_version_file "$source_directory/package.meta" 4 ;;
+    installed) read_version_file "${manager_source%/*}/version" 3 ;;
+  esac
+  package_version=$bundle_version
+  package_revision=$bundle_revision
+  package_state=$bundle_state
   # Resolve the display language before parsing so argument errors use the saved
   # preference too. An explicit --lang can also repair an invalid config file.
   language_override=
@@ -786,7 +844,6 @@ main() {
   require_absolute HOME "${HOME:-}"
   resolve_locations
   language=$(mst_resolve_language "$settings_file" "${language_override:-${MST_LANG:-}}") || exit 2
-  load_manager_catalogs
   parse_arguments "$@"
   if [ "$invocation_mode" = installed ] && [ "$action" = setup ]; then action=help; fi
   case $action in
@@ -795,7 +852,7 @@ main() {
     config) configure_language; return 0 ;;
     setup|install|update|upgrade|uninstall|list) ;;
   esac
-  for dependency in uname zsh mkdir mktemp cat awk cmp cp mv date rm rmdir; do
+  for dependency in uname zsh mkdir mktemp cat awk sed cmp cp mv date rm rmdir chmod; do
     command -v "$dependency" >/dev/null 2>&1 || fail error.dependency "$dependency"
   done
   platform=$(uname -s) || fail error.platform
@@ -806,27 +863,42 @@ main() {
     inspect_region "$install_directory/init.zsh" "$init_begin" "$init_end"
     [ "$region_state" = managed ] || fail error.unknown_entry "$install_directory/init.zsh"
   fi
+  # Upgrade also repairs a missing or damaged local repository. The downloaded
+  # source validates installed records before writes, so no cached catalog is needed.
+  case "$invocation_mode:$action" in installed:upgrade) fetch_release "$@" ;; esac
+  case $invocation_mode in
+    bootstrap) load_source_catalog ;;
+    installed) load_local_catalog ;;
+  esac
   read_installed
   case $invocation_mode in
     installed)
       case $action in
-        install|upgrade) fetch_release "$@" ;;
+        upgrade) ;;
         update)
           for checked_file in $requested_files; do
             contains_file "$installed_files" "$checked_file" || usage_error error.not_installed "${checked_file%.zsh}"
           done
           if [ -z "$installed_files" ]; then message info.empty; return 0; fi
           fetch_release "$@" ;;
-        setup|uninstall|list) ;;
+        setup|install|uninstall|list) ;;
       esac ;;
     bootstrap) ;;
   esac
   select_files
   write_manager_runtime=no
+  write_repository_runtime=no
   case $action in
     list) list_tools; return 0 ;;
-    setup|upgrade|install) write_manager_runtime=yes ;;
-    update|uninstall)
+    setup|upgrade|install)
+      if [ "$invocation_mode" = bootstrap ]; then
+        write_manager_runtime=yes
+        write_repository_runtime=yes
+      fi ;;
+    update)
+      if [ -z "$installed_files" ]; then message info.empty; return 0; fi
+      if [ "$invocation_mode" = bootstrap ]; then write_repository_runtime=yes; fi ;;
+    uninstall)
       if [ -z "$selected_files" ] && [ "$migrating" = no ]; then message info.no_tools; return 0; fi ;;
   esac
   if [ "$migrating" = yes ]; then write_manager_runtime=yes; fi
@@ -836,6 +908,7 @@ main() {
   zdot_directory=$(CDPATH= cd -P "$zdot_directory" && pwd) || fail error.enter "$zdot_directory"
   zshrc="$zdot_directory/.zshrc"
   tools_directory="$install_directory/tools"
+  repository_directory="$install_directory/repository"
   manager_directory="$install_directory/manager"
   backup_directory="$install_directory/backups"
   state_file="$tools_directory/installed.list"
@@ -848,13 +921,14 @@ main() {
     mkdir "$legacy_lock_directory" 2>/dev/null || fail error.lock "$legacy_lock_directory"
     has_legacy_lock=1
   fi
+  case $invocation_mode in installed) load_local_catalog ;; bootstrap) ;; esac
   read_installed
   select_files
   ensure_directory "$tools_directory"
   ensure_directory "$backup_directory"
   if [ "$write_manager_runtime" = yes ]; then
     ensure_directory "$manager_directory/locales"
-    for manager_file in manager-core.sh mst.sh mst.zsh i18n.sh locales/en.sh locales/zh-CN.sh version; do check_file "$manager_directory/$manager_file"; done
+    for manager_file in manager-core.sh mst.sh mst.zsh i18n.sh repository.sh LICENSE locales/en.sh locales/zh-CN.sh version; do check_file "$manager_directory/$manager_file"; done
   fi
   stage=$(mktemp -d "${TMPDIR:-/tmp}/mac-shell-tools-install.XXXXXX") || fail error.stage
   write_payload || fail error.payload
@@ -871,7 +945,9 @@ main() {
       if contains_file "$selected_files" "$recorded_file"; then use_package_record=yes; fi ;;
     esac
     case $use_package_record in
-      yes) printf '%s\t%s\t%s\t%s\n' "$recorded_file" "$package_version" "$package_revision" "$package_state" >> "$stage/next-state" ;;
+      yes)
+        read_version_file "$stage/payload/tools/${recorded_file%.zsh}/version" 3
+        printf '%s\t%s\t%s\t%s\n' "$recorded_file" "$bundle_version" "$bundle_revision" "$bundle_state" >> "$stage/next-state" ;;
       no) record_for "$recorded_file" >> "$stage/next-state" ;;
     esac
   done
@@ -885,9 +961,12 @@ main() {
     preflight_write "$manager_source" "$manager_directory/manager-core.sh"
     preflight_write "$stage/mst.sh" "$manager_directory/mst.sh"
     preflight_write "$stage/manager-version" "$manager_directory/version"
-    for manager_asset in mst.zsh i18n.sh locales/en.sh locales/zh-CN.sh; do
+    for manager_asset in mst.zsh i18n.sh repository.sh LICENSE locales/en.sh locales/zh-CN.sh; do
       preflight_write "$stage/payload/manager/$manager_asset" "$manager_directory/$manager_asset"
     done
+  fi
+  if [ "$write_repository_runtime" = yes ]; then
+    prepare_component "$stage/payload/repository" "$repository_directory"
   fi
   if [ "$write_state" = yes ]; then
     if [ -n "$next_files" ]; then preflight_write "$stage/next-state" "$state_file"; else preflight_target "$state_file"; fi
@@ -903,6 +982,9 @@ main() {
   prepare_migration
   # Journal comes first so an interrupted migration can be resumed safely.
   if [ "$migrating" = yes ]; then write_file "$stage/legacy-root" "$manager_directory/legacy-root"; fi
+  if [ "$write_repository_runtime" = yes ]; then
+    write_component "$stage/payload/repository" "$repository_directory"
+  fi
   if [ "$write_manager_runtime" = yes ]; then write_manager; fi
   for legacy_file in $migration_files; do
     write_component "$stage/migration/${legacy_file%.zsh}" "$(component_path "$legacy_file")"
