@@ -30,7 +30,7 @@ Use `mst install --all` if you want every available tool. You do not need to kee
 
 | Command | Behavior |
 | --- | --- |
-| `mst list` | Show available tools and installation status, offline |
+| `mst list` | Show tools, installation status, and installed/available versions, offline |
 | `mst install dsize` | Install or update selected tools; refresh mst and its catalog |
 | `mst install --all` | Install or update all available tools |
 | `mst update` | Update installed tools only |
@@ -38,6 +38,9 @@ Use `mst install --all` if you want every available tool. You do not need to kee
 | `mst upgrade` | Upgrade mst and refresh its catalog, keeping installed tools unchanged |
 | `mst uninstall dsize` | Uninstall selected tools, with backups |
 | `mst uninstall --all` | Uninstall all registered tools; keep mst available |
+| `mst config language` | Show the saved language; default: English |
+| `mst config language en` | Save English for mst and tools |
+| `mst config language zh-CN` | Save Simplified Chinese for mst and tools |
 | `mst --help` | Show commands and options |
 
 `install`, `update`, and `upgrade` fetch the latest package from GitHub `main`. `list` and `uninstall` work offline. When new tools are published, run `mst upgrade`, then `mst list` and `mst install <tool>`. New tools are never installed by `upgrade` or `update`, and removed tools stay removed.
@@ -54,13 +57,39 @@ After a change, an interactive terminal starts a new login Zsh. Pass `--no-run-z
 
 ## Configuration
 
-The default tools directory is `~/.config/zsh/tools`. The manager lives in its `.mac-shell-tools/` subdirectory, and a managed block in `~/.zshrc` loads the shared `init.zsh` entry. `mst` is a Zsh function, so no PATH changes are needed.
+The default installation root is `~/.config/zsh/mac-shell-tools/`:
 
-Set `XDG_CONFIG_HOME` and `ZDOTDIR` to absolute paths before installation to customize these locations. Installed management commands remember their original paths. Changes and removals are backed up; personal content outside managed blocks, unrelated files, and backups are preserved.
+```text
+~/.config/zsh/mac-shell-tools/
+├── init.zsh              # Shared loader, referenced by .zshrc
+├── manager/              # mst, its version, and language packs
+├── tools/
+│   ├── installed.list    # Installed tools and their versions
+│   └── dsize/            # dsize source, version, and language packs
+├── config.conf           # Saved preferences, created when configured
+└── backups/              # Backups of changed or removed files
+```
+
+`mst` is a Zsh function, so no PATH changes are needed. Set `XDG_CONFIG_HOME` and `ZDOTDIR` to absolute paths before installation to customize these locations. Installed management commands remember their original paths.
+
+Existing installations in `~/.config/zsh/tools` migrate with `mst upgrade`. Tool content is preserved; tools without version records show `unknown` until updated. Personal files and old backups remain at their original location. See [installation and recovery](docs/installation.md).
 
 For local installation, run `sh install.sh` from a checkout. The `curl ... | sh` form also installs mst, but requires manual activation.
 
-See [installation and recovery](docs/installation.md) for details.
+## Language and versions
+
+Output defaults to English. A saved language applies to mst and tool help, errors, and completion descriptions on their next invocation, without opening a new terminal:
+
+```sh
+mst config language zh-CN   # Save Simplified Chinese
+mst config language en      # Save English
+mst config language         # Show the saved language
+mst --lang zh-CN list        # Use Chinese for this command only
+mst --version
+dsize --version
+```
+
+The project uses `MAJOR.MINOR.PATCH` releases, tagged `vX.Y.Z`; development versions include `-dev` and a source digest. Each installed component records its own source release and revision. `mst upgrade` keeps tool versions; `mst update` updates installed tool versions. See [versioning details](docs/development.md#版本与发布).
 
 ## Development
 

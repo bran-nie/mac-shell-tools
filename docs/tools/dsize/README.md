@@ -31,6 +31,7 @@ dsize -- ./-example
 | `-d N`, `--depth N`, `--depth=N` | `2` | Decimal integer, 0–1000 |
 | `-n N`, `--lines N`, `--lines=N` | `25` | Decimal integer, 1–1000000 |
 | `-h`, `--help` | | Show help |
+| `-V`, `--version` | | Show the version loaded in this shell |
 | `--` | | Stop parsing options; at most one directory may follow |
 
 Options and the directory may appear in either order. Repeated options use the last value. Leading zeros are decimal. Quote paths with spaces normally; input strings are never evaluated with `eval`.
@@ -42,6 +43,12 @@ Output keeps the ordinary `du` format: readable units, ascending size, and the l
 `dsize <Tab>` completes directories, including paths with spaces. Short and long options, help flags, depth suggestions (`0 1 2 3 4 5`), and line-count suggestions (`10 25 50 100`) are supported, including `--depth=` and `--lines=`. Suggestions do not restrict accepted values. Completion never starts a disk scan.
 
 Load the toolkit after Oh My Zsh or `compinit`. It registers with `compdef` when available and never runs `compinit` itself. The command also works without completion.
+
+## Language and version
+
+Help, errors, and completion descriptions default to English. Run `mst config language zh-CN` or `mst config language en` to save the shared preference; it applies on the next call without reloading. `MST_LANG=zh-CN dsize --help` overrides it once. Missing translations fall back to English; disk-usage data and exit codes remain the same.
+
+`dsize --version` reports the loaded function's source release, revision, and state. After `mst update dsize --no-run-zsh`, source the printed loader to use the new function. Source files, version records, and language packs live together in `~/.config/zsh/mac-shell-tools/tools/dsize/` and update together.
 
 ## Exit codes
 

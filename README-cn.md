@@ -30,7 +30,7 @@ mst install dsize
 
 | 命令 | 行为 |
 | --- | --- |
-| `mst list` | 离线查看可用工具和安装状态 |
+| `mst list` | 离线查看工具、安装状态、已安装和可用版本 |
 | `mst install dsize` | 安装或更新指定工具，同时刷新 mst 和工具目录 |
 | `mst install --all` | 安装或更新全部可用工具 |
 | `mst update` | 仅更新已安装工具 |
@@ -38,6 +38,9 @@ mst install dsize
 | `mst upgrade` | 升级 mst 和可用工具目录，保留已安装工具 |
 | `mst uninstall dsize` | 卸载指定工具，删除前备份 |
 | `mst uninstall --all` | 卸载全部已登记工具，保留 mst |
+| `mst config language` | 查看保存的语言，默认英文 |
+| `mst config language en` | 将 mst 和工具的语言保存为英文 |
+| `mst config language zh-CN` | 将 mst 和工具的语言保存为简体中文 |
 | `mst --help` | 查看命令和参数 |
 
 `install`、`update` 和 `upgrade` 从 GitHub `main` 获取最新安装包；`list` 和 `uninstall` 离线可用。项目发布新工具后，执行 `mst upgrade`，再通过 `mst list` 查看、`mst install <工具名>` 选择安装。`upgrade` 和 `update` 不会安装新工具，也不会重新安装已卸载的工具。
@@ -54,13 +57,39 @@ mst install dsize
 
 ## 配置
 
-默认工具目录是 `~/.config/zsh/tools`，管理器保存在其中的 `.mac-shell-tools/` 子目录。`~/.zshrc` 中的管理块加载共享入口 `init.zsh`，由它定义 `mst` 函数，无需修改 PATH。
+默认安装根目录是 `~/.config/zsh/mac-shell-tools/`：
 
-首次安装前，可将 `XDG_CONFIG_HOME` 和 `ZDOTDIR` 设为绝对路径来自定义位置；已安装的管理命令会记住原路径。修改和删除前都会备份，管理块之外的个人内容、无关文件及备份均保留。
+```text
+~/.config/zsh/mac-shell-tools/
+├── init.zsh              # 集中入口，由 .zshrc 引用
+├── manager/              # mst、管理器版本和语言包
+├── tools/
+│   ├── installed.list    # 已安装工具及版本清单
+│   └── dsize/            # dsize 源码、版本和语言包
+├── config.conf           # 保存的偏好，设置时创建
+└── backups/              # 修改或删除文件前的备份
+```
+
+`mst` 是 Zsh 函数，无需修改 PATH。首次安装前，可将 `XDG_CONFIG_HOME` 和 `ZDOTDIR` 设为绝对路径来自定义位置；已安装的管理命令会记住原路径。
+
+已安装在 `~/.config/zsh/tools` 的用户通过 `mst upgrade` 迁移。工具内容保持不变，没有版本记录的工具先显示 `unknown`，更新工具后再记录实际版本。个人文件及旧备份保留在原位置，详见[安装与恢复说明](docs/installation-cn.md)。
 
 本地安装可在仓库中执行 `sh install.sh`。`curl ... | sh` 也能安装 mst，但需要手动启用。
 
-详见[安装与恢复说明](docs/installation-cn.md)。
+## 语言与版本
+
+输出默认使用英文。保存语言后，mst 和工具的帮助、错误及补全说明会在下一次调用时生效，无需重开终端：
+
+```sh
+mst config language zh-CN   # 保存为简体中文
+mst config language en      # 保存为英文
+mst config language         # 查看保存的语言
+mst --lang zh-CN list        # 仅本次命令使用中文
+mst --version
+dsize --version
+```
+
+项目使用 `主版本.次版本.修订号`，发布标签为 `vX.Y.Z`；开发版本包含 `-dev` 和源码摘要。管理器与各个已安装工具分别记录来源版本和提交。`mst upgrade` 保留工具版本，`mst update` 更新已安装工具的版本，详见[版本与发布](docs/development.md#版本与发布)。
 
 ## 开发与验证
 
