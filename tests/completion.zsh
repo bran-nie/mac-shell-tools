@@ -76,9 +76,7 @@ setopt auto_list
 unsetopt list_ambiguous
 zstyle ':completion:*' verbose yes
 bindkey -e
-autoload -Uz compinit
-fpath=( /usr/share/zsh/$ZSH_VERSION/functions /usr/share/zsh/site-functions )
-compinit -D -i
+# Bare Zsh must get completion from the shared loader on either platform.
 source "$MST_PROJECT/tools/init.zsh"
 [[ ${_comps[dsize]-} == _dsize ]] || exit 1
 cd "$MST_TREE" || exit 1

@@ -1,5 +1,13 @@
 #!/bin/sh
 # Shared fixture and assertions; only called with isolated test directories.
+file_stat() {
+  case $(uname -s) in
+    Darwin) stat -f '%i:%m:%z' "$@" ;;
+    Linux) stat -c '%i:%Y:%s' "$@" ;;
+    *) printf '%s\n' 'Unsupported test platform.' >&2; return 1 ;;
+  esac
+}
+
 copy_package() {
   package_source=$1
   package_target=$2

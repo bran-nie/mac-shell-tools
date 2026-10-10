@@ -4,9 +4,10 @@
 set -eu
 project_dir=$(CDPATH= cd -P "$(dirname "$0")/.." && pwd)
 cd "$project_dir"
-case $(uname -s) in
-  Darwin) ;;
-  *) printf '%s\n' '完整验证需要 macOS BSD 工具链。' >&2; exit 1 ;;
+platform=$(uname -s)
+case $platform in
+  Darwin|Linux) ;;
+  *) printf '%s\n' '完整验证需要 macOS 或 Linux。' >&2; exit 1 ;;
 esac
 for script in install.sh scripts/*.sh scripts/*.sh.in tests/*.sh lib/*.sh locales/*.sh tools/*/locales/*.sh; do
   sh -n "$script"
@@ -20,7 +21,7 @@ test_root=$(mktemp -d "${TMPDIR:-/tmp}/mac-shell-tools-check.XXXXXX")
 trap 'rm -rf "$test_root"' 0
 trap 'exit 1' HUP INT TERM
 mkdir -p "$test_root/home" "$test_root/tmp"
-for suite in dsize.zsh install.sh management.sh mst.sh versions-language.sh migration.sh completion.zsh sessions.zsh; do
+for suite in dsize.zsh install.sh management.sh mst.sh versions-language.sh migration.sh platform.sh completion.zsh sessions.zsh; do
   case $suite in
     *.zsh)
       env HOME="$test_root/home" XDG_CONFIG_HOME= ZDOTDIR= MST_LANG= TMPDIR="$test_root/tmp" \
@@ -32,4 +33,4 @@ for suite in dsize.zsh install.sh management.sh mst.sh versions-language.sh migr
       ;;
   esac
 done
-printf '%s\n' '全部 macOS 检查通过。'
+printf '全部 %s 检查通过。\n' "$platform"

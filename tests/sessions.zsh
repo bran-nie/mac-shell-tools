@@ -77,7 +77,10 @@ RPROMPT=''
 unsetopt beep promptcr promptsp
 unset HISTFILE
 SAVEHIST=0
-precmd() { print -r -- "__MST_SHELL__${+functions[dsize]}__MST_MANAGER__${+functions[mst]}__"; }
+precmd() {
+  print -r -- "__MST_SHELL__${+functions[dsize]}__MST_MANAGER__${+functions[mst]}__"
+  print -r -- "__MST_COMPLETION__${+functions[compdef]}__MST_TOOL_COMPLETION__${_comps[dsize]-none}__"
+}
 RC
 }
 
@@ -120,6 +123,8 @@ expect_login() {
   local expected_function=$1
   read_until "__MST_SHELL__${expected_function}__"
   read_until '__MST_MANAGER__1__'
+  read_until '__MST_COMPLETION__1__'
+  if (( expected_function )); then read_until '__MST_TOOL_COMPLETION___dsize__'; fi
   read_until __MST_PROMPT__
   [[ -f "$MST_EXEC_LOG" ]] || fail '未调用新的登录 Zsh'
   (( checks++ ))
@@ -177,7 +182,29 @@ read_until __MST_COMMAND_OK__
 [[ $terminal_output == *'--depth'* ]] || fail '新会话中 dsize 不可用'
 close_session
 
+# An already initialized completion system (Oh My Zsh or a manual setup) must
+# be reused, with its existing registrations preserved across repeated loads.
+new_home completion-ready
+cat >> "$test_home/.zshrc" <<'RC'
+autoload -Uz compinit
+compinit
+compdef _files personal-command
+compinit() { print -r -- __MST_UNEXPECTED_COMPINIT__; return 1; }
+RC
+start_command /bin/sh "$MST_INSTALLER" install dsize
+expect_login 1
+[[ $terminal_output != *__MST_UNEXPECTED_COMPINIT__* ]] || fail '重复初始化已有补全系统'
+zpty -w mst-session 'source "$HOME/.config/zsh/mac-shell-tools/init.zsh"; [[ ${_comps[personal-command]-} == _files && ${_comps[dsize]-} == _dsize ]] && print -r -- __MST_REUSE_""OK__'
+read_until __MST_REUSE_OK__
+[[ $terminal_output != *__MST_UNEXPECTED_COMPINIT__* ]] || fail '重复 source 重新运行 compinit'
+(( checks++ ))
+close_session
+
 # 相同内容、查询、帮助及失败均不得开启额外会话。
+new_home automatic
+start_command /bin/sh "$MST_INSTALLER" install dsize
+expect_login 1
+close_session
 for arguments in 'install dsize' list --help 'install missing'; do
   previous=$(login_count)
   start_command /bin/sh "$MST_INSTALLER" ${=arguments}

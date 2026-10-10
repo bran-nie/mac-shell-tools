@@ -1,5 +1,5 @@
 #!/bin/zsh
-# 对比真实 BSD 管道，并覆盖输入、权限、阶段失败及 Shell 隔离。
+# 对比平台原生管道，并覆盖输入、权限、阶段失败及 Shell 隔离。
 # 命令替身只用于稳定重现失败，不替代正常统计的平台验证。
 emulate -R zsh
 setopt nounset pipefail
@@ -30,14 +30,14 @@ expect_status() {
   return 0
 }
 
-# 期望值直接来自 macOS 系统命令，验证格式、排序、行数和默认值。
+# 期望值直接来自当前平台的系统命令，验证格式、排序、行数和默认值。
 compare_reference() {
   local label=$1 expected_depth=$2 expected_lines=$3 expected_directory=$4
   shift 4
   /usr/bin/du -h -d "$expected_depth" "$expected_directory" 2>/dev/null |
     /usr/bin/sort -h | /usr/bin/tail -n "$expected_lines" > "$test_directory/expected" || fail "$label: 基线失败"
   expect_status 0 "$label" dsize "$@"
-  cmp -s "$test_directory/expected" "$test_directory/out" || fail "$label: 输出与 BSD 管道不同"
+  cmp -s "$test_directory/expected" "$test_directory/out" || fail "$label: 输出与系统管道不同"
   [[ ! -s "$test_directory/err" ]] || fail "$label: 成功时出现错误输出"
 }
 

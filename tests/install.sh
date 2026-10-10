@@ -51,7 +51,7 @@ backup_count() {
 
 # 文件标识和时间一起验证真正的幂等，不依赖等待跨过时间戳精度。
 file_identity() {
-  stat -f '%i:%m' "$zshrc" "$install_directory/init.zsh" "$install_directory/tools/dsize/dsize.zsh"
+  file_stat "$zshrc" "$install_directory/init.zsh" "$install_directory/tools/dsize/dsize.zsh"
 }
 
 new_home first

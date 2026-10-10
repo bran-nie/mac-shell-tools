@@ -102,7 +102,7 @@ backup_count() {
 managed_identity() {
   for file in "$manager_directory/manager-core.sh" "$manager_directory/mst.sh" "$manager_directory/mst.zsh" \
       "$install_directory/init.zsh" "$zshrc" "$install_directory/tools/dsize/dsize.zsh" "$install_directory/tools/installed.list"; do
-    if [ -f "$file" ]; then stat -f '%i:%m:%z' "$file"; cksum "$file"; fi
+    if [ -f "$file" ]; then file_stat "$file"; cksum "$file"; fi
   done
 }
 
@@ -132,8 +132,8 @@ grep -Eq '^other[[:space:]]+not installed[[:space:]]+' "$test_directory/out" || 
 run_mst 0 install dsize
 assert_functions 1 0
 tool_matches "$fixture" dsize "$install_directory/tools/dsize/dsize.zsh" || fail '在线安装未使用新版本'
-manager_identity=$(stat -f '%i:%m' "$manager_directory/manager-core.sh")
-state_identity=$(stat -f '%i:%m' "$install_directory/tools/installed.list")
+manager_identity=$(file_stat "$manager_directory/manager-core.sh")
+state_identity=$(file_stat "$install_directory/tools/installed.list")
 
 # update 下载最新工具，但不会隐式升级管理器或安装新工具。
 printf '\n# release three\n' >> "$fixture/tools/dsize/dsize.zsh"
@@ -141,17 +141,17 @@ printf '\n# manager release three\n' >> "$fixture/lib/mst.zsh"
 sh "$fixture/scripts/build-installer.sh" > "$test_directory/build"
 run_mst 0 update
 tool_matches "$fixture" dsize "$install_directory/tools/dsize/dsize.zsh" || fail 'update 未获取最新工具'
-[ "$(stat -f '%i:%m' "$manager_directory/manager-core.sh")" = "$manager_identity" ] || fail 'update 隐式升级管理器'
-[ "$(stat -f '%i:%m' "$install_directory/tools/installed.list")" != "$state_identity" ] || fail 'update 未记录新的工具版本'
-state_identity=$(stat -f '%i:%m' "$install_directory/tools/installed.list")
+[ "$(file_stat "$manager_directory/manager-core.sh")" = "$manager_identity" ] || fail 'update 隐式升级管理器'
+[ "$(file_stat "$install_directory/tools/installed.list")" != "$state_identity" ] || fail 'update 未记录新的工具版本'
+state_identity=$(file_stat "$install_directory/tools/installed.list")
 [ ! -e "$install_directory/tools/other/other.zsh" ] || fail 'update 安装新工具'
-tool_identity=$(stat -f '%i:%m' "$install_directory/tools/dsize/dsize.zsh")
+tool_identity=$(file_stat "$install_directory/tools/dsize/dsize.zsh")
 run_mst 0 upgrade --no-run-zsh
-[ "$(stat -f '%i:%m' "$manager_directory/manager-core.sh")" != "$manager_identity" ] || fail 'upgrade 未升级管理器'
-[ "$(stat -f '%i:%m' "$install_directory/tools/dsize/dsize.zsh")" = "$tool_identity" ] || fail 'upgrade 修改已安装工具'
-[ "$(stat -f '%i:%m' "$install_directory/tools/installed.list")" = "$state_identity" ] || fail 'upgrade 修改已安装清单'
+[ "$(file_stat "$manager_directory/manager-core.sh")" != "$manager_identity" ] || fail 'upgrade 未升级管理器'
+[ "$(file_stat "$install_directory/tools/dsize/dsize.zsh")" = "$tool_identity" ] || fail 'upgrade 修改已安装工具'
+[ "$(file_stat "$install_directory/tools/installed.list")" = "$state_identity" ] || fail 'upgrade 修改已安装清单'
 run_mst 0 upgrade
-[ "$(stat -f '%i:%m' "$install_directory/tools/dsize/dsize.zsh")" = "$tool_identity" ] || fail '重复 upgrade 修改工具'
+[ "$(file_stat "$install_directory/tools/dsize/dsize.zsh")" = "$tool_identity" ] || fail '重复 upgrade 修改工具'
 
 printf '\n# keep my existing dsize\n' >> "$install_directory/tools/dsize/dsize.zsh"
 cp "$install_directory/tools/dsize/dsize.zsh" "$test_directory/kept-dsize"

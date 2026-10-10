@@ -76,14 +76,14 @@ run 0 install other
 [ ! -e "$install_directory/tools/dsize/dsize.zsh" ] || fail '选择安装仍安装了所有工具'
 assert_functions 0 1
 [ "$(state_names "$install_directory/tools/installed.list")" = other.zsh ] || fail '安装清单不准确'
-other_identity=$(stat -f '%i:%m' "$install_directory/tools/other/other.zsh")
+other_identity=$(file_stat "$install_directory/tools/other/other.zsh")
 run 0 install dsize dsize
 assert_functions 1 1
-[ "$(stat -f '%i:%m' "$install_directory/tools/other/other.zsh")" = "$other_identity" ] || fail '增量安装重写了其他工具'
+[ "$(file_stat "$install_directory/tools/other/other.zsh")" = "$other_identity" ] || fail '增量安装重写了其他工具'
 [ "$(wc -l < "$install_directory/tools/installed.list" | tr -d ' ')" -eq 2 ] || fail '重复工具未去重'
-state_identity=$(stat -f '%i:%m' "$install_directory/tools/installed.list")
+state_identity=$(file_stat "$install_directory/tools/installed.list")
 run 0 install dsize
-[ "$(stat -f '%i:%m' "$install_directory/tools/installed.list")" = "$state_identity" ] || fail '重复安装重写清单'
+[ "$(file_stat "$install_directory/tools/installed.list")" = "$state_identity" ] || fail '重复安装重写清单'
 run 0 list
 grep -Eq '^dsize[[:space:]]+installed[[:space:]]+' "$test_directory/out" || fail 'list 安装状态错误'
 
