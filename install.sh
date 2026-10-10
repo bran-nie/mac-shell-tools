@@ -21,8 +21,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # Package version: 0.1.0-dev+86c05b041fce
-# Source revision: 4c1dfe5f9b61d717ec32fc16d00e70dbbaf9c2a9
-# Source state: modified
+# Source revision: c84c8588754558aea5c8311b1ebbf75ad79b46f8
+# Source state: clean
 # Source digest: 86c05b041fce2e51eb66ac2f0e589f6e71023fa946f51957b5a93021412f1bfd
 # mac-shell-tools bootstrap v1
 # 自包含引导脚本：先展开共享管理器，再在当前进程中执行。
@@ -308,8 +308,8 @@ RUNZSH=no 也可关闭新的登录会话。
 }
 
 package_version='0.1.0-dev+86c05b041fce'
-package_revision='4c1dfe5f9b61d717ec32fc16d00e70dbbaf9c2a9'
-package_state='modified'
+package_revision='c84c8588754558aea5c8311b1ebbf75ad79b46f8'
+package_state='clean'
 # mac-shell-tools 共享管理器；引导安装与常驻 mst 共用此实现。
 # 由生成脚本打包运行时源码，管理器始终从文件加载。
 set -eu
@@ -1563,7 +1563,7 @@ _mac_shell_tools_dsize_help() {
 # Values are embedded when building the package, so --version describes the
 # function actually loaded in this session even if its on-disk file was updated.
 _mac_shell_tools_dsize_version() {
-  local version='0.1.0-dev+86c05b041fce' revision='4c1dfe5f9b61d717ec32fc16d00e70dbbaf9c2a9' source_state='modified'
+  local version='0.1.0-dev+86c05b041fce' revision='c84c8588754558aea5c8311b1ebbf75ad79b46f8' source_state='clean'
   case $version in @*) version=development; revision=unbuilt; source_state=unknown ;; esac
   print -r -- "dsize $version ($revision; $source_state)"
 }
@@ -1736,8 +1736,8 @@ MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
   mkdir -p "$stage/payload/tools/dsize" || return 1
   cat > "$stage/payload/tools/dsize/version" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
 0.1.0-dev+86c05b041fce
-4c1dfe5f9b61d717ec32fc16d00e70dbbaf9c2a9
-modified
+c84c8588754558aea5c8311b1ebbf75ad79b46f8
+clean
 MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C
   mkdir -p "$stage/payload/tools/dsize" || return 1
   cat > "$stage/payload/tools/dsize/i18n.sh" <<'MAC_SHELL_TOOLS_EMBEDDED_FILE_7D4C' || return 1
