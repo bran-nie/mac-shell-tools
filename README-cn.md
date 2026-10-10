@@ -2,128 +2,65 @@
 
 [English](README.md)
 
-面向 macOS 的轻量 Zsh 工具集。首个工具 `dsize` 用一条命令查看目录中占用空间最大的条目，并提供目录、选项及数值的 Tab 补全。
+面向 macOS 的轻量 Zsh 工具管理器。先安装 **mst**，再选择需要的工具。
 
-需要 macOS、Zsh 和系统自带的基础命令，目标用户已使用 Oh My Zsh。不需要 `sudo`、Homebrew、Node.js、Python 或额外运行时；安装器不会安装 Oh My Zsh。
+需要 macOS、Zsh 和系统基础命令，在线操作使用系统 curl。在 Oh My Zsh 或 `compinit` 之后加载即可使用 Tab 补全，无需 `sudo`、Homebrew 或额外运行时。
 
-## 安装
+## 安装 mst
 
-在本地仓库执行：
-
-```sh
-sh install.sh
-```
-
-`install.sh` 是自包含单文件，可单独复制、分享，在任意目录运行，不需要旁边存在仓库源码。
-
-仓库 `main` 分支发布 `install.sh` 后，可下载再运行：
+推荐从 GitHub 安装管理器：
 
 ```sh
-curl -fsSL -o install.sh "https://raw.githubusercontent.com/bran-nie/mac-shell-tools/main/install.sh"
-sh install.sh
+mac_shell_tools_installer="$(curl -fsSL "https://raw.githubusercontent.com/bran-nie/mac-shell-tools/main/install.sh")" &&
+  sh -c "$mac_shell_tools_installer"
 ```
 
-也可以一条命令安装：
+这一步**只安装 mst**。在交互终端中，成功变更后会在当前窗口启动新的 Zsh 登录会话，随即可以使用 `mst`。退出后可能回到原会话。
+
+随后可在任意目录查看并选择工具：
 
 ```sh
-curl -fsSL "https://raw.githubusercontent.com/bran-nie/mac-shell-tools/main/install.sh" | sh
+mst list
+mst install dsize
 ```
 
-安装完成后重新打开终端，或在 Zsh 中执行安装器打印的 `source` 命令。默认路径下是：
+需要全部工具时，执行 `mst install --all`。后续无需保留仓库或安装脚本。
 
-```zsh
-source "$HOME/.zshrc"
-dsize --help
-```
+## 管理工具
 
-安装器作为子进程运行，当前 Shell 需要重新加载配置后才会启用工具。
+| 命令 | 行为 |
+| --- | --- |
+| `mst list` | 离线查看可用工具和安装状态 |
+| `mst install dsize` | 安装或更新指定工具，同时刷新 mst 和工具目录 |
+| `mst install --all` | 安装或更新全部可用工具 |
+| `mst update` | 仅更新已安装工具 |
+| `mst update dsize` | 更新指定的已安装工具 |
+| `mst upgrade` | 升级 mst 和可用工具目录，保留已安装工具 |
+| `mst uninstall dsize` | 卸载指定工具，删除前备份 |
+| `mst uninstall --all` | 卸载全部已登记工具，保留 mst |
+| `mst --help` | 查看命令和参数 |
 
-## 使用 dsize
+`install`、`update` 和 `upgrade` 从 GitHub `main` 获取最新安装包；`list` 和 `uninstall` 离线可用。项目发布新工具后，执行 `mst upgrade`，再通过 `mst list` 查看、`mst install <工具名>` 选择安装。`upgrade` 和 `update` 不会安装新工具，也不会重新安装已卸载的工具。
 
-```zsh
-dsize
-dsize ~/Library
-dsize ~/Library/Caches -n 50
-dsize ~/Library -d 3 -n 50
-dsize -n 50 ~/Library
-dsize ~/Library --depth=3 --lines=30
-dsize "$HOME/Library/Application Support" -n 30
-dsize -- ./-example
-```
+工具命令支持同时传入多个名称。`install` 不带名称时表示全部可用工具，`update` 不带名称时表示全部已安装工具。`--all` 不能与工具名混用。
 
-| 参数 | 默认值 | 允许值 |
+交互终端中有变更时会启动新的 Zsh 登录会话。使用 `--no-run-zsh`、`--unattended` 或 `RUNZSH=no` 可关闭自动启动；查询、内容不变、管道输入和输出重定向也会跳过。需要手动启用时，按打印的命令操作；卸载后新开终端或执行 `exec zsh -l`，清除已加载的函数。新会话会重新读取配置，原会话中未导出的变量和函数不会带入。
+
+## 工具
+
+| 工具 | 简介 | 文档 |
 | --- | --- | --- |
-| 目录 | `.` | 一个存在的目录 |
-| `-d N`、`--depth N`、`--depth=N` | `2` | 十进制整数，0–1000 |
-| `-n N`、`--lines N`、`--lines=N` | `25` | 十进制整数，1–1000000 |
-| `-h`、`--help` | | 显示帮助 |
-| `--` | | 停止解析选项，后面至多一个目录 |
+| `dsize` | 查看指定目录的磁盘占用排行（默认最多 25 条），支持目录 Tab 补全 | [使用说明](docs/tools/dsize/README-cn.md) |
 
-目录与选项可以交错，同一选项重复时最后一次生效。前导零按十进制处理。空格路径使用标准 Shell 引号或反斜杠转义；不会用 `eval` 执行或展开输入字符串。
+## 配置
 
-输出保持 `du` 的普通格式：可读单位、按大小升序排列、保留最大的 N 行，**最大的条目在最后一行**。默认包含目标目录总量，不添加表头、颜色或百分比。
+默认工具目录是 `~/.config/zsh/tools`，管理器保存在其中的 `.mac-shell-tools/` 子目录。`~/.zshrc` 中的管理块加载共享入口 `init.zsh`，由它定义 `mst` 函数，无需修改 PATH。
 
-退出码：成功或帮助为 `0`，参数或路径错误为 `2`，扫描不完整、中断或依赖执行失败为 `1`。`du` 失败时仍可输出已有结果，并在 stderr 给出简短诊断，不会重复显示大量权限报错。
+首次安装前，可将 `XDG_CONFIG_HOME` 和 `ZDOTDIR` 设为绝对路径来自定义位置；已安装的管理命令会记住原路径。修改和删除前都会备份，管理块之外的个人内容、无关文件及备份均保留。
 
-### Tab 补全
+本地安装可在仓库中执行 `sh install.sh`。`curl ... | sh` 也能安装 mst，但需要手动启用。
 
-`dsize <Tab>` 补全目录，包括带空格的路径；还支持短选项、长选项、帮助，以及深度建议 `0 1 2 3 4 5` 和条数建议 `10 25 50 100`。支持 `--depth=`、`--lines=`，数值建议不会限制真实取值。补全不会启动磁盘扫描。
-
-请在 **Oh My Zsh 或 `compinit` 完成补全初始化后**加载工具。工具只在 `compdef` 可用时注册，不会重复执行 `compinit`。没有补全系统时，统计命令仍可使用。
-
-## 路径与配置
-
-默认安装结构：
-
-```text
-~/.config/zsh/tools/
-├── init.zsh
-└── dsize.zsh
-```
-
-- 工具目录：`${XDG_CONFIG_HOME:-$HOME/.config}/zsh/tools`。
-- 主配置：`${ZDOTDIR:-$HOME}/.zshrc`。
-- 变量未设置或为空时采用默认值，非空相对路径会报错。
-
-例如：
-
-```sh
-XDG_CONFIG_HOME="$HOME/Custom Config" ZDOTDIR="$HOME/Custom Zsh" sh install.sh
-```
-
-安装器在主配置末尾、现有 Oh My Zsh 初始化之后添加一个带起止标记的管理块。管理块先检查 `init.zsh` 是否存在，再加载它。引用使用安装时解析的绝对路径，并进行 Zsh 字符串转义；之后修改环境变量不会自动迁移这条引用。需要换位置时，用目标路径重新运行安装器。父目录中的符号链接会被解析定位，链接本身保留。
-
-`init.zsh` 根据自身位置显式加载注册工具。加载过程安静，不改变工作目录，不遍历执行未注册脚本或备份。再次 source 可以刷新函数和补全。
-
-## 更新、备份与恢复
-
-重复运行新版 `install.sh` 即可更新。相同内容不会重写。修改已有 `dsize.zsh`、`init.zsh` 或 `.zshrc` 前，会创建备份：
-
-```text
-<文件名>.bak.YYYYMMDD-HHMMSS.<随机后缀>
-```
-
-每个备份位置都会打印。恢复时将选定备份复制回原路径，再重新加载配置。已有 `init.zsh` 只更新工具注册管理区域，其他引用和注释保留；`.zshrc` 保留无关内容，将项目管理块放到末尾。
-
-入口来源不明、管理标记损坏或重复、目标类型错误、配置文件或最终工具目录为符号链接时，安装会停止，保留链接及其目标。请手动处理后重试。同一工具目录的并发安装会被拒绝；只有确认没有安装器运行后，才可手动移除残留的 `.mac-shell-tools-install.lock` 目录。
-
-所有内容先准备并做语法检查，再通过同目录暂存文件逐个替换；先安装工具和入口，最后更新主配置。失败时可能已有部分文件更新，但备份保留。修复报错后可重复安装，或从备份恢复。
-
-不会自动改写其他 `source` 行或手写函数。如果已经自行定义 `dsize()`、`_dsize()` 或 `compdef _dsize dsize`，请按实际需要手动删除重复定义，包括 `.zshrc_alias` 中的定义。任意自定义加载顺序仍可能覆盖同名函数。
-
-## 卸载
-
-1. 如果没有其他工具依赖集中入口，移除 `.zshrc` 中 `# >>> mac-shell-tools >>>` 至 `# <<< mac-shell-tools <<<` 的整个管理块。入口还有个人工具时，保留入口引用，仅移除 `dsize.zsh` 注册。
-2. 确认归属后删除已安装的 `dsize.zsh`；只有在 `init.zsh` 中没有需要保留的个人引用或注释时，才删除入口文件。
-3. 保留其他工具和仍需使用的备份，重新打开终端以清除已加载的函数定义。
-
-不要为卸载而直接删除整个共享工具目录。
-
-## 数字解读
-
-这里统计的是**磁盘占用**，不承诺等于文件逻辑大小、Finder 数字、macOS“系统数据”，或删除后实际释放的空间。硬链接和 APFS 特性会影响数字。父目录包含子目录，因此输出不能简单相加。
-
-深度限制的是展示层级，为计算总量仍会遍历更深内容；降低深度不保证扫描明显变快。权限受限可能产生不完整结果。输出保留 `du` 的文本格式，包含 Tab 或换行的文件名不能无歧义地表示为记录。工具只统计，不删除、不清理文件。
+详见[安装与恢复说明](docs/installation-cn.md)。
 
 ## 开发与验证
 
@@ -132,8 +69,8 @@ sh scripts/build-installer.sh
 sh scripts/check.sh
 ```
 
-检查需要 macOS，所有配置验证使用临时 HOME 和隔离目录。覆盖真实 BSD 管道、参数和权限错误、依赖失败、中断、安装更新、备份、配置保留、独立脚本及 stdin 安装，以及 Zsh 伪终端中的真实 Tab 补全。CI 在 macOS 上运行同一命令。
+macOS 检查使用临时 HOME、配置目录和模拟下载，包括伪终端中的真实 Tab 补全及登录会话验证。详见[维护说明](docs/development.md)。
 
-新增工具、同步生成安装器和简短的终端人工检查见[维护说明](docs/development.md)。
+## 许可证
 
-项目许可证尚未选择。
+[MIT](LICENSE) © 2026 bran.nie。
