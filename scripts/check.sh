@@ -21,7 +21,7 @@ test_root=$(mktemp -d "${TMPDIR:-/tmp}/mac-shell-tools-check.XXXXXX")
 trap 'rm -rf "$test_root"' 0
 trap 'exit 1' HUP INT TERM
 mkdir -p "$test_root/home" "$test_root/tmp"
-for suite in dsize.zsh install.sh management.sh mst.sh versions-language.sh migration.sh platform.sh completion.zsh sessions.zsh; do
+for suite in dsize.zsh portwho.zsh extract.zsh install.sh management.sh mst.sh catalog.sh versions-language.sh migration.sh platform.sh completion.zsh sessions.zsh; do
   case $suite in
     *.zsh)
       env HOME="$test_root/home" XDG_CONFIG_HOME= ZDOTDIR= MST_LANG= TMPDIR="$test_root/tmp" \

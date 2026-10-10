@@ -188,7 +188,7 @@ sh "$fixture/scripts/build-installer.sh" --check > "$test_directory/build"
 checks=$((checks + 1))
 
 # Complete catalogs share keys and printf arguments; fallback is tested above.
-for catalog_directory in "$project_dir/locales" "$project_dir/tools/dsize/locales"; do
+for catalog_directory in "$project_dir/locales" "$project_dir"/tools/*/locales; do
   for catalog_language in en zh-CN; do
     awk '/^[[:space:]]+[a-z][a-z_.]*\)/ {key=$1; sub(/\)$/, "", key); print key}' \
       "$catalog_directory/$catalog_language.sh" > "$test_directory/keys-$catalog_language"

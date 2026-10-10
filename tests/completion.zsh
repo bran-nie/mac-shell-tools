@@ -63,6 +63,11 @@ printf 'unexpected scan\n' >> "$MST_SCAN_LOG"
 exit 1
 MOCK
 chmod +x "$test_directory/mock/du"
+for backend in lsof tar unzip; do
+  cp "$test_directory/mock/du" "$test_directory/mock/$backend"
+done
+touch "$test_directory/tree/bundle file.zip" "$test_directory/tree/归档.ZIP" \
+  "$test_directory/tree/-bundle.tgz" "$test_directory/tree/bundle-other.rar"
 
 cat > "$test_directory/home/.zshrc" <<'RC'
 emulate -R zsh
@@ -79,6 +84,7 @@ bindkey -e
 # Bare Zsh must get completion from the shared loader on either platform.
 source "$MST_PROJECT/tools/init.zsh"
 [[ ${_comps[dsize]-} == _dsize ]] || exit 1
+[[ ${_comps[portwho]-} == _portwho && ${_comps[extract]-} == _extract ]] || exit 1
 cd "$MST_TREE" || exit 1
 
 # 记录真实补全后的命令行；不会执行 BUFFER 中的统计命令。
@@ -123,6 +129,20 @@ expect_completion 重复长选项 'dsize --depth=2 --depth=5' 'dsize --depth=2 -
 expect_completion 分隔符目录 'dsize -- -da' 'dsize -- -dashdir/'
 expect_completion 数值不当目录 'dsize -d sp' 'dsize -d sp'
 expect_completion 不补全第二目录 'dsize ordinary sp' 'dsize ordinary sp'
+expect_completion 端口帮助 'portwho --he' 'portwho --help '
+expect_completion 端口版本 'portwho --ver' 'portwho --version '
+expect_completion 端口数值 'portwho 443' 'portwho 443 '
+expect_completion 多个端口 'portwho 80 443' 'portwho 80 443 '
+expect_completion 端口不补全目录 'portwho sp' 'portwho sp'
+expect_completion 解压帮助 'extract --he' 'extract --help '
+expect_completion 解压版本 'extract --ver' 'extract --version '
+expect_completion 解压预览 'extract --li' 'extract --list '
+expect_completion 空格压缩包 'extract bun' 'extract bundle\ file.zip '
+expect_completion 中文压缩包 'extract 归' 'extract 归档.ZIP '
+expect_completion 解压目标目录 'extract -C sp' 'extract -C space\ directory/'
+expect_completion 解压长目标目录 'extract --directory=sp' 'extract --directory=space\ directory/'
+expect_completion 解压分隔符 'extract -- -bun' 'extract -- -bundle.tgz '
+expect_completion 不补全第二压缩包 'extract sample.zip bun' 'extract sample.zip bun'
 expect_completion 英文选项列表 'dsize -' 'dsize -'
 zselect -t 10
 while zpty -r mst-completion chunk 2>/dev/null; do terminal_output+=$chunk; done
@@ -135,5 +155,9 @@ zselect -t 10
 while zpty -r mst-completion chunk 2>/dev/null; do terminal_output+=$chunk; done
 [[ $terminal_output == *'显示帮助'* && $terminal_output == *'25'* ]] || fail '中文补全说明未切换'
 expect_completion 中文目录补全 'dsize sp' 'dsize space\ directory/'
-[[ ! -e "$test_directory/scan-log" ]] || fail '补全触发了 du 扫描'
+expect_completion 中文解压选项 'extract -' 'extract -'
+zselect -t 10
+while zpty -r mst-completion chunk 2>/dev/null; do terminal_output+=$chunk; done
+[[ $terminal_output == *'预览压缩包内容'* && $terminal_output == *'新的目标目录'* ]] || fail '中文解压补全说明缺失'
+[[ ! -e "$test_directory/scan-log" ]] || fail '补全触发了工具后端命令'
 print -r -- "PASS completion: $checks 项真实 Tab 补全及扫描隔离。"
