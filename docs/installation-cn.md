@@ -2,6 +2,21 @@
 
 [English](installation.md) · [项目 README](../README-cn.md)
 
+## 支持的系统与 Zsh
+
+支持 macOS 和 Linux。mst、工具及补全依赖 Zsh，Oh My Zsh 可选。Linux 需要 GNU Coreutils 或支持相同工具参数的命令（dsize 使用 `du -h -d`、`sort -h`、`tail -n`），在线操作还需要 curl。
+
+Ubuntu 24.04 LTS 缺少依赖时可先执行：
+
+```sh
+sudo apt-get update
+sudo apt-get install -y zsh curl
+```
+
+安装器会在写入管理配置前检查 Zsh 是否可用。可以从 Bash 等其他 Shell 启动 POSIX 安装器；它不会修改默认 Shell 或安装系统软件包。交互安装按下文规则启动 Zsh。需要从其他 Shell 手动启用时，执行 `zsh -l`；打印的 `source` 命令只在 Zsh 中执行。项目入口在其他 Shell 中跳过加载。
+
+共享入口加载时检查当前 Shell 的补全状态。交互式 Zsh 缺少 `compdef` 时，先执行 `autoload -Uz compinit` 和 `compinit`，再加载工具。Oh My Zsh 或手工配置已经初始化补全时直接复用，不会再次运行 `compinit`。仅存在 Oh My Zsh 目录不代表补全已就绪。非交互加载不初始化补全；保留 [Zsh 标准补全初始化](https://zsh.sourceforge.io/Doc/Release/Completion-System.html#Use-of-compinit)及其安全检查。
+
 ## 先安装管理器，再选择工具
 
 项目 README 推荐的 GitHub 命令不带参数执行自包含的 `install.sh`，仅安装 mst 及共享入口，不启用具体工具。随后执行：
@@ -124,7 +139,7 @@ mst --lang zh-CN list
 
 推荐的 `sh -c` 下载方式保留终端输入；`curl ... | sh` 的安装器输入是管道，因此需要手动启用。
 
-安装或更新后，按需执行打印的 `source` 命令或新开终端。卸载后需要新会话或 `exec zsh -l`；重新 source 配置不会清除内存中已有的函数。
+安装或更新后，可在 Zsh 中执行打印的 `source` 命令，或执行 `zsh -l` 启动 Zsh。卸载后请启动全新的 Zsh 会话或运行 `exec zsh -l`；重新 source 配置不会清除内存中已有的函数。
 
 ## 备份与恢复
 

@@ -2,9 +2,9 @@
 
 [简体中文](README-cn.md)
 
-A small Zsh tool manager for macOS. Install **mst** first, then choose the tools you need.
+A small Zsh tool manager for macOS and Linux. Install **mst** first, then choose the tools you need.
 
-Requires macOS, Zsh, and standard macOS commands, including curl for online operations. Load after Oh My Zsh or `compinit` for Tab completion. No `sudo`, Homebrew, or extra runtime is required.
+Requires Zsh and standard system commands; online operations also require curl. On Linux, use GNU Coreutils or compatible commands. The shared loader reuses existing completion (including Oh My Zsh), or initializes it in interactive Zsh when needed. The manager installs into your user configuration directory without `sudo`. See [Ubuntu 24.04 prerequisites](docs/installation.md#supported-systems-and-zsh).
 
 ## Install mst
 
@@ -47,7 +47,7 @@ Use `mst install --all` if you want every available tool. You do not need to kee
 
 Tool commands accept multiple names. `install` without names means all available tools; `update` without names means all installed tools. `--all` cannot be combined with names.
 
-After a change, an interactive terminal starts a new login Zsh. Pass `--no-run-zsh` or `--unattended`, or set `RUNZSH=no`, to skip it. Queries, unchanged operations, piped input, and redirected output also skip it. Follow the printed activation command when needed; after uninstalling, start a new terminal or run `exec zsh -l` to clear loaded functions. A new session reloads configuration and does not carry over unexported variables or functions.
+After a change, an interactive terminal starts a new login Zsh. Pass `--no-run-zsh` or `--unattended`, or set `RUNZSH=no`, to skip it. Queries, unchanged operations, piped input, and redirected output also skip it. Follow the printed activation command in Zsh when needed; from Bash, enter Zsh with `zsh -l`. After uninstalling, start a fresh Zsh or run `exec zsh -l` to clear loaded functions. A new session reloads configuration and does not carry over unexported variables or functions.
 
 ## Tools
 
@@ -98,7 +98,7 @@ sh scripts/build-installer.sh
 sh scripts/check.sh
 ```
 
-The macOS checks use temporary HOME/config directories and mock downloads, including real Tab completion and login-session tests in pseudo-terminals. See [development notes](docs/development.md).
+Checks use temporary HOME/config directories and mock downloads, including real Tab completion and login-session tests in pseudo-terminals. The same suite can run on macOS and Linux; CI currently runs macOS. See [development notes](docs/development.md).
 
 ## License
 

@@ -2,7 +2,7 @@
 
 [English](README.md) · [mac-shell-tools](../../../README-cn.md)
 
-使用 macOS 自带的 `du`、`sort` 和 `tail`，查看指定目录的磁盘占用排行，默认最多显示 25 条结果，支持目录 Tab 补全。
+在 macOS 或 Linux 上使用 `du`、`sort` 和 `tail` 查看指定目录的磁盘占用排行，默认最多显示 25 条结果，支持目录 Tab 补全。Linux 需要 GNU Coreutils 或支持 `du -h -d`、`sort -h`、`tail -n` 的兼容命令。
 
 ## 安装
 
@@ -16,12 +16,12 @@ mst install dsize
 
 ```zsh
 dsize
-dsize ~/Library
-dsize ~/Library/Caches -n 50
-dsize ~/Library -d 3 -n 50
-dsize -n 50 ~/Library
-dsize ~/Library --depth=3 --lines=30
-dsize "$HOME/Library/Application Support" -n 30
+dsize ~/.config
+dsize ~/.config/zsh -n 50
+dsize ~/.config -d 3 -n 50
+dsize -n 50 ~/.config
+dsize ~/.config --depth=3 --lines=30
+dsize "$HOME/带空格的目录" -n 30
 dsize -- ./-example
 ```
 
@@ -42,7 +42,7 @@ dsize -- ./-example
 
 `dsize <Tab>` 补全目录，包括带空格的路径；还支持短选项、长选项、帮助，以及深度建议 `0 1 2 3 4 5` 和条数建议 `10 25 50 100`。支持 `--depth=`、`--lines=`；建议不限制实际取值，补全不会启动磁盘扫描。
 
-在 Oh My Zsh 或 `compinit` 完成初始化后加载工具。工具只在 `compdef` 可用时注册，不会运行 `compinit`；没有补全系统时统计命令仍可使用。
+共享入口会复用 Oh My Zsh 或个人配置已初始化的补全；交互式 Zsh 缺少 `compdef` 时，先初始化补全，再加载工具。单独加载 dsize 源文件不会运行 `compinit`；没有补全系统时统计命令仍可使用。
 
 ## 语言与版本
 
@@ -62,7 +62,7 @@ dsize -- ./-example
 
 ## 数字解读
 
-这里统计的是**磁盘占用**，可能不同于文件逻辑大小、Finder 数字、macOS“系统数据”或删除后实际释放的空间。硬链接和 APFS 特性会影响数字。父目录包含子目录，输出不能简单相加。
+这里统计的是**磁盘占用**，可能不同于文件逻辑大小、文件管理器数字或删除后实际释放的空间。硬链接、稀疏文件及 APFS 克隆等文件系统特性会影响数字，不同文件系统和操作系统之间的结果可能不同。父目录包含子目录，输出不能简单相加。
 
 深度限制展示层级，为计算总量仍会遍历更深内容；降低深度不保证扫描更快。权限受限时可能得到不完整结果。
 

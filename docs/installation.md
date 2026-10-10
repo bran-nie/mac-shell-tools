@@ -2,6 +2,21 @@
 
 [简体中文](installation-cn.md) · [Project README](../README.md)
 
+## Supported systems and Zsh
+
+Supports macOS and Linux. Zsh is required for mst, tools, and completion; Oh My Zsh is optional. Linux requires GNU Coreutils or commands supporting the same tool options (`du -h -d`, `sort -h`, and `tail -n` for dsize), plus curl for online operations.
+
+On Ubuntu 24.04 LTS, prepare missing dependencies with:
+
+```sh
+sudo apt-get update
+sudo apt-get install -y zsh curl
+```
+
+The installer checks that Zsh is available before writing managed configuration. You can launch the POSIX installer from Bash or another shell; it does not change your default shell or install system packages. An interactive installation starts Zsh as described below. For manual activation from another shell, run `zsh -l`; only run the printed `source` command inside Zsh. The project loader skips loading in other shells.
+
+The shared entry checks the running shell's completion state when loaded. In interactive Zsh, if `compdef` is absent, it runs `autoload -Uz compinit` followed by `compinit` before loading tools. If Oh My Zsh or a manual setup has already initialized completion, it reuses that system without running `compinit` again. An Oh My Zsh directory alone does not establish that completion is ready. Non-interactive loading does not initialize completion. Standard [Zsh completion initialization](https://zsh.sourceforge.io/Doc/Release/Completion-System.html#Use-of-compinit) and its security checks apply.
+
 ## Install the manager, then tools
 
 The recommended GitHub command in the project README runs the self-contained `install.sh` without arguments. This installs mst and its shared loader, with no tools enabled. Then run:
@@ -124,7 +139,7 @@ After a successful file change, mst starts a new login Zsh if both input and out
 
 The recommended `sh -c` download command retains terminal input. `curl ... | sh` gives the installer piped input, so activation is manual.
 
-After installation or update, use the printed `source` command or open a new terminal when needed. After uninstallation, start a fresh session or run `exec zsh -l`: re-sourcing configuration does not clear functions already loaded in memory.
+After installation or update, use the printed `source` command in Zsh or start Zsh with `zsh -l` when needed. After uninstallation, start a fresh Zsh session or run `exec zsh -l`: re-sourcing configuration does not clear functions already loaded in memory.
 
 ## Backups and recovery
 

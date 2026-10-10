@@ -15,7 +15,7 @@
 | `scripts/bootstrap.sh.in` | 展开管理器载荷并委托共享实现 |
 | `scripts/build-installer.sh` | 打包组件、版本、语言包及完整 MIT 声明 |
 | `install.sh` | 自包含生成产物，不手动修改 |
-| `tests/` | 使用系统命令及隔离 HOME 的 macOS 验证 |
+| `tests/` | 使用平台原生命令及隔离 HOME 的 macOS / Linux 验证 |
 | `docs/tools/<名称>/` | 每个工具独立的英文及中文文档 |
 
 运行工具、查询和卸载不需要网络；安装、工具更新及管理器升级使用系统 curl。无需包管理器或额外运行时。
@@ -35,7 +35,7 @@ sh scripts/check.sh
 sh scripts/build-installer.sh --check
 ```
 
-生成过程使用基础 Shell 工具和系统 shasum，不嵌入时间或绝对机器路径。源码相同时，常规构建复用已记录的提交来源，结果可重复。检查使用同一来源重新生成并比较全部内容，发布生成产物后的新提交不会让检查误报过期。
+生成过程使用基础 Shell 工具，SHA-256 优先使用 sha256sum，缺少时使用 shasum；安装后的运行时不需要这两个构建命令。不嵌入时间或绝对机器路径。源码相同时，常规构建复用已记录的提交来源，结果可重复。检查使用同一来源重新生成并比较全部内容，发布生成产物后的新提交不会让检查误报过期。
 
 工具清单每行一个 .zsh 文件名，标识以小写字母或数字开头，仅允许小写字母、数字和连字符。不放注释、重复项、路径或保留文件名。生成器检查两层 heredoc 分隔符冲突，并检查管理器与引导脚本语法；提交时包含同步生成的 install.sh。
 
@@ -49,7 +49,7 @@ sh scripts/build-installer.sh --check
 
 正式发布步骤：
 
-1. 更新 VERSION 为 X.Y.Z，整理更新记录，构建并完成 macOS 门禁。
+1. 更新 VERSION 为 X.Y.Z，整理更新记录，构建并完成目标平台门禁。
 2. 提交受控源码，确保这些源文件干净；生成产物可以留到下一步提交。
 3. 执行 `sh scripts/build-installer.sh --refresh-revision`，再次运行门禁，核对包头的版本、来源提交和 clean 状态。
 4. 提交生成的 install.sh，为发布提交打 vX.Y.Z 标签并发布。随后将 VERSION 改为下一版本的 -dev。生成脚本不自动提交、打标签或推送。
@@ -72,13 +72,15 @@ lib/i18n.sh 按纯文本读取根 config.conf 的 language=en|zh-CN，不 source
 2. 在源码 init.zsh 的管理区显式 source，并检查文件存在；不要 glob 执行目录中的脚本。
 3. 将文件名加入 scripts/tools.list，重新生成 install.sh。生成器将源码、版本、files.list 及语言包打包为完整组件。
 4. 添加实际行为检查及工具独立的双语 README；根 README 表格只添加名称、简介和链接。
-5. 在真实 macOS 上运行完整门禁。用户通过 mst upgrade 获取新工具目录，再按需 mst install <名称>。
+5. 在工具声明支持的平台上运行完整门禁，确认 BSD / GNU 命令参数与行为。用户通过 mst upgrade 获取新工具目录，再按需 mst install <名称>。
 
-源码入口用于直接加载，安装器根据目标机器清单渲染，不会全量启用。管理测试临时生成双工具包，以发现选择安装错误。工具仅定义函数并注册必要补全；source 与补全时不扫描磁盘、不联网、不输出启动信息、不运行 compinit、不改变调用者的选项或工作目录。
+源码入口用于直接加载，安装器根据目标机器清单渲染，不会全量启用。管理测试临时生成双工具包，以发现选择安装错误。工具仅定义函数并注册必要补全；source 与补全时不扫描磁盘、不联网、不输出启动信息、不运行 compinit、不改变调用者的选项或工作目录。共享入口在交互式 Zsh 缺少 compdef 时运行标准 compinit；已有补全系统及非交互加载均跳过初始化。
 
 ## 安装配置契约
 
-默认根目录为 `${XDG_CONFIG_HOME:-$HOME/.config}/zsh/mac-shell-tools`。manager/mst.sh 固定解析后的根目录及主配置路径，mst.zsh 根据自身位置找到它。首次引导和下载委托共用实现；.zshrc → init.zsh → manager/mst.zsh 仅注册函数，启动时不联网。
+支持 Darwin 和 Linux；Linux 使用 GNU Coreutils 或兼容命令，运行时依赖 Zsh，在线操作还依赖 curl。引导由 POSIX sh 执行，检查 Zsh 是否可用，不以 $SHELL 或引导解释器判断用户当前 Shell，不自动安装系统依赖或修改默认 Shell。
+
+默认根目录为 `${XDG_CONFIG_HOME:-$HOME/.config}/zsh/mac-shell-tools`。manager/mst.sh 固定解析后的根目录及主配置路径，mst.zsh 根据自身位置找到它。首次引导和下载委托共用实现；.zshrc → init.zsh → manager/mst.zsh，启动时不联网。项目加载入口仅在 Zsh 中执行；交互式加载根据实时 compdef 状态决定是否初始化补全，不检查 Oh My Zsh 目录，不在安装时执行用户配置，重复加载复用已有补全与个人注册。
 
 主配置和入口分别使用唯一且完整的标记：
 
@@ -102,21 +104,22 @@ lib/i18n.sh 按纯文本读取根 config.conf 的 language=en|zh-CN，不 source
 
 ## 验证门禁
 
-`sh scripts/check.sh` 检查语法、生成产物一致性，并在 macOS 隔离环境运行：
+`sh scripts/check.sh` 检查语法、生成产物一致性，并在当前 macOS 或 Linux 的隔离环境运行：
 
-- dsize：真实 BSD 管道结果、参数和路径矩阵、权限、阶段失败、中断、加载及调用隔离。
+- dsize：平台原生 BSD / GNU 管道结果、参数和路径矩阵、权限、阶段失败、中断、加载及调用隔离。
 - install：首次与重复安装、备份、用户内容保留、路径转义、链接及权限、写入失败恢复、独立文件及 stdin 分发。
 - management：双工具包中的选择安装、更新与卸载、清单校验、缺失修复、资源归属及个人文件保护。
 - mst：任意目录入口、默认仅管理器、模拟在线发布、更新与升级分离、无效下载保留文件、固定自定义路径。
 - versions-language：版本来源和独立记录、加载版本与磁盘版本、构建及发布可重复性、语言切换、优先级、回退、纯数据配置、消息键及格式参数一致性。
 - migration：原目录、原清单和旧会话兼容、自定义路径、不可用工具、相对个人引用、双锁、中断及恢复、冲突与缺失保护。
-- completion：真实 Tab 的编辑缓冲区、双语说明、版本选项、数值及等号、顺序、分隔符、目录限定及不扫描。
-- sessions：真实伪终端中新登录 Zsh、固定 ZDOTDIR、锁和暂存清理、禁用参数、语言配置不启动会话、管道及输出重定向。
+- platform：模拟系统标识验证允许及拒绝分支、Bash 启动与加载边界、缺少 Zsh 时不写配置、非交互加载不初始化补全。模拟标识不代替真实 Linux 验证。
+- completion：裸 Zsh 中共享入口自动初始化后的真实 Tab 编辑缓冲区、双语说明、版本选项、数值及等号、顺序、分隔符、目录限定及不扫描。
+- sessions：真实伪终端中新登录 Zsh、补全自动初始化及已有补全复用、个人注册保留、重复加载、固定 ZDOTDIR、锁和暂存清理、禁用参数、语言配置不启动会话、管道及输出重定向。
 
-测试不指向真实 HOME，下载使用本地 curl 替身，不安装远端代码。可绕过权限的身份下会明确输出权限用例 SKIP，受控失败仍执行。CI 使用 macOS runner，不以 Linux 结果替代 BSD 平台证据。
+测试不指向真实 HOME，下载使用本地 curl 替身，不安装远端代码。文件身份使用按平台选择的 BSD / GNU stat 参数；补全使用各平台 Zsh 自带的 fpath。可绕过权限的身份下会明确输出权限用例 SKIP，受控失败仍执行。当前 CI 使用 macOS runner；Linux 可在目标机器运行同一套门禁，真实平台结果分别记录，不以模拟 uname 或 macOS 结果宣称 Ubuntu 实测通过。
 
 ## 人工终端检查
 
 在隔离配置中确认安装后进入新 Zsh，mst list 可用且无工具；选择安装后检查 dsize --help 和 --version。切换中英文，检查帮助、错误和补全说明。尝试带空格与中文的路径、重复选项、等号及 --，确认个人补全主题兼容。
 
-不用修改项目之外的配置；可在独立 Zsh 中初始化补全，再 source tools/init.zsh。
+不用修改项目之外的配置；可在隔离 HOME 的交互式 Zsh 中 source tools/init.zsh，分别检查裸 Zsh 和已初始化补全的配置。

@@ -2,9 +2,9 @@
 
 [English](README.md)
 
-面向 macOS 的轻量 Zsh 工具管理器。先安装 **mst**，再选择需要的工具。
+面向 macOS 和 Linux 的轻量 Zsh 工具管理器。先安装 **mst**，再选择需要的工具。
 
-需要 macOS、Zsh 和系统基础命令，在线操作使用系统 curl。在 Oh My Zsh 或 `compinit` 之后加载即可使用 Tab 补全，无需 `sudo`、Homebrew 或额外运行时。
+需要 Zsh 和系统基础命令，在线操作还需要 curl；Linux 使用 GNU Coreutils 或兼容命令。共享入口会复用已有补全系统（包括 Oh My Zsh），交互式 Zsh 尚未初始化补全时自动初始化。管理器安装到用户配置目录，无需 `sudo`。参见 [Ubuntu 24.04 依赖准备](docs/installation-cn.md#支持的系统与-zsh)。
 
 ## 安装 mst
 
@@ -47,7 +47,7 @@ mst install dsize
 
 工具命令支持同时传入多个名称。`install` 不带名称时表示全部可用工具，`update` 不带名称时表示全部已安装工具。`--all` 不能与工具名混用。
 
-交互终端中有变更时会启动新的 Zsh 登录会话。使用 `--no-run-zsh`、`--unattended` 或 `RUNZSH=no` 可关闭自动启动；查询、内容不变、管道输入和输出重定向也会跳过。需要手动启用时，按打印的命令操作；卸载后新开终端或执行 `exec zsh -l`，清除已加载的函数。新会话会重新读取配置，原会话中未导出的变量和函数不会带入。
+交互终端中有变更时会启动新的 Zsh 登录会话。使用 `--no-run-zsh`、`--unattended` 或 `RUNZSH=no` 可关闭自动启动；查询、内容不变、管道输入和输出重定向也会跳过。需要手动启用时，在 Zsh 中按打印的命令操作；当前使用 Bash 时先执行 `zsh -l`。卸载后启动全新的 Zsh 或执行 `exec zsh -l`，清除已加载的函数。新会话会重新读取配置，原会话中未导出的变量和函数不会带入。
 
 ## 工具
 
@@ -98,7 +98,7 @@ sh scripts/build-installer.sh
 sh scripts/check.sh
 ```
 
-macOS 检查使用临时 HOME、配置目录和模拟下载，包括伪终端中的真实 Tab 补全及登录会话验证。详见[维护说明](docs/development.md)。
+检查使用临时 HOME、配置目录和模拟下载，包括伪终端中的真实 Tab 补全及登录会话验证。同一套检查可在 macOS 和 Linux 上运行，当前 CI 运行 macOS。详见[维护说明](docs/development.md)。
 
 ## 许可证
 

@@ -2,7 +2,7 @@
 
 [简体中文](README-cn.md) · [mac-shell-tools](../../../README.md)
 
-Show disk usage for a chosen directory using the standard macOS `du`, `sort`, and `tail` commands. Keep up to 25 largest results by default, with directory Tab completion.
+Show disk usage for a chosen directory on macOS or Linux using `du`, `sort`, and `tail`. Linux requires GNU Coreutils or compatible commands supporting `du -h -d`, `sort -h`, and `tail -n`. Keep up to 25 largest results by default, with directory Tab completion.
 
 ## Install
 
@@ -16,12 +16,12 @@ mst install dsize
 
 ```zsh
 dsize
-dsize ~/Library
-dsize ~/Library/Caches -n 50
-dsize ~/Library -d 3 -n 50
-dsize -n 50 ~/Library
-dsize ~/Library --depth=3 --lines=30
-dsize "$HOME/Library/Application Support" -n 30
+dsize ~/.config
+dsize ~/.config/zsh -n 50
+dsize ~/.config -d 3 -n 50
+dsize -n 50 ~/.config
+dsize ~/.config --depth=3 --lines=30
+dsize "$HOME/path with spaces" -n 30
 dsize -- ./-example
 ```
 
@@ -42,7 +42,7 @@ Output keeps the ordinary `du` format: readable units, ascending size, and the l
 
 `dsize <Tab>` completes directories, including paths with spaces. Short and long options, help flags, depth suggestions (`0 1 2 3 4 5`), and line-count suggestions (`10 25 50 100`) are supported, including `--depth=` and `--lines=`. Suggestions do not restrict accepted values. Completion never starts a disk scan.
 
-Load the toolkit after Oh My Zsh or `compinit`. It registers with `compdef` when available and never runs `compinit` itself. The command also works without completion.
+The shared loader reuses completion initialized by Oh My Zsh or your own configuration. In interactive Zsh without `compdef`, it initializes completion before loading tools. Loading the dsize source file alone does not run `compinit`; the command also works without completion.
 
 ## Language and version
 
@@ -62,7 +62,7 @@ When `du` fails, available results can still be printed, with a brief diagnostic
 
 ## Interpreting sizes
 
-`dsize` reports **disk usage**, which can differ from logical file sizes, Finder totals, macOS “System Data,” or space released after deletion. Hard links and APFS behavior can affect the numbers. Parent totals include children, so output lines cannot be added together.
+`dsize` reports **disk usage**, which can differ from logical file sizes, file-manager totals, or space released after deletion. Hard links, sparse files, and filesystem features such as APFS cloning can affect the numbers. Results can differ across filesystems and operating systems. Parent totals include children, so output lines cannot be added together.
 
 Depth controls displayed levels, not traversal: calculating totals can still read deeper directories. Lower depth does not guarantee a faster scan. Restricted directories can produce incomplete results.
 
