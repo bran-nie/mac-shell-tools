@@ -114,8 +114,9 @@ grep -Fq '用法：mst' "$test_directory/out" || fail '--lang did not override e
 shell_run 0 'mst config language en; sample --help'
 grep -Fq 'Usage: sample' "$test_directory/out" || fail 'English switch did not apply'
 
-# Both languages produce identical disk-usage data and version identifiers.
-shell_run 0 'sample "$HOME" -d 0; MST_LANG=zh-CN sample "$HOME" -d 0'
+# Shared language selection leaves a component's payload and version unchanged.
+# Actual disk-usage data is checked by tests/tools/dsize/behavior.zsh.
+shell_run 0 'sample; MST_LANG=zh-CN sample'
 [ "$(sed -n '1p' "$test_directory/out")" = "$(sed -n '2p' "$test_directory/out")" ] || fail 'language changed data'
 shell_run 0 'sample --version; MST_LANG=zh-CN sample --version'
 [ "$(sed -n '1p' "$test_directory/out")" = "$(sed -n '2p' "$test_directory/out")" ] || fail 'language changed version'

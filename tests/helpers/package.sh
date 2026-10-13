@@ -44,6 +44,45 @@ zsh -f -c '
 grep -Fq "Usage: $tool" "$test_directory/output" || fail 'English help'
 grep -Fq "用法：$tool" "$test_directory/output" || fail 'Chinese help'
 grep -Fq "$tool $version (" "$test_directory/output" || fail 'installed version'
+
+# Keep real component language and loaded-version boundaries here, while core
+# tests use synthetic components to exercise manager configuration and upgrades.
+language_output() {
+  env MST_LANG="$1" zsh -f -c 'source "$HOME/.zshrc"; "$1" "$2"' -- "$tool" "$2"
+}
+english_help=$(language_output en --help)
+english_version=$(language_output en --version)
+[ "$(language_output zh-CN --version)" = "$english_version" ] || fail 'language changed version'
+run config language zh-CN
+[ "$(language_output en --help)" = "$english_help" ] || fail 'environment did not override saved language'
+translation="$install_directory/tools/$tool/locales/zh-CN.sh"
+cp "$translation" "$test_directory/translation"
+printf 'mst_text_zh_CN() { return 1; }\n' > "$translation"
+[ "$(language_output '' --help)" = "$english_help" ] || fail 'missing-key fallback'
+rm "$translation"
+[ "$(language_output '' --help)" = "$english_help" ] || fail 'missing-catalog fallback'
+cp "$test_directory/translation" "$translation"
+printf 'touch %s/executed\n' "$test_directory" > "$install_directory/config.conf"
+if language_output '' --help > "$test_directory/output" 2> "$test_directory/error"; then
+  fail 'executable language configuration accepted'
+else
+  [ "$?" -eq 2 ] || fail 'invalid configuration exit code'
+fi
+[ ! -e "$test_directory/executed" ] || fail 'configuration executed'
+run --lang en config language en
+
+installed_source="$install_directory/tools/$tool/$tool.zsh"
+cp "$installed_source" "$test_directory/installed-source"
+zsh -f -c '
+  source "$HOME/.zshrc"
+  original_version=$("$1" --version) || exit 1
+  source_text=$(<"$3")
+  print -r -- "${source_text//$2/contract-next}" > "$3"
+  [[ $("$1" --version) == "$original_version" ]] || exit 1
+  source "$HOME/.zshrc"
+  [[ $("$1" --version) == "$1 contract-next ("* ]] || exit 1
+' -- "$tool" "$version" "$installed_source" || fail 'loaded version changed before reload or failed to refresh'
+cp "$test_directory/installed-source" "$installed_source"
 run install --all
 printf 'personal\n' > "$install_directory/tools/$tool/personal.txt"
 run uninstall "$tool"

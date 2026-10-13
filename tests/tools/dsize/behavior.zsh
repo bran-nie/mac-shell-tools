@@ -79,6 +79,14 @@ expect_status 0 帮助 dsize --help
 [[ $(<"$test_directory/out") == *'last repeated option wins'* ]] || fail '帮助缺少重复选项说明'
 expect_status 0 短帮助 dsize -h
 
+# Real scan data must remain byte-identical when only the display language changes.
+expect_status 0 英文数据 dsize "$test_directory/tree" -d 0
+cp "$test_directory/out" "$test_directory/english-data"
+MST_LANG=zh-CN expect_status 0 中文数据 dsize "$test_directory/tree" -d 0
+cmp -s "$test_directory/english-data" "$test_directory/out" || fail '语言改变了磁盘统计数据'
+MST_LANG=zh-CN expect_status 2 中文错误 dsize --invalid
+[[ $(<"$test_directory/err") == *'未知选项'* ]] || fail '工具错误未使用中文'
+
 for option in -d --depth -n --lines; do
   expect_status 2 缺值 dsize "$option"
   for value in '' -1 abc 1.5 +1 １２; do
