@@ -16,6 +16,7 @@ mkdir -p "$test_home" "$test_directory/mock" "$test_directory/tmp"
 copy_package "$project_dir" "$fixture"
 printf '%s\n' dsize.zsh remote.zsh > "$fixture/scripts/tools.list"
 mkdir -p "$fixture/tools/remote"
+printf '%s\n' 0.1.0-dev > "$fixture/tools/remote/VERSION"
 cat > "$fixture/tools/remote/remote.zsh" <<'TOOL'
 remote() {
   local remote_directory=${${(%):-%x}:A:h}
@@ -93,19 +94,20 @@ tool_matches "$fixture" dsize "$install_directory/repository/tools/dsize/dsize.z
 [ ! -e "$install_directory/repository/tools/remote/bin/helper" ] || fail 'upgrade downloaded online resources'
 cp -R "$install_directory/manager" "$test_directory/manager-before-update"
 printf '0.4.0\n' > "$fixture/VERSION"
+printf '0.2.0\n' > "$fixture/tools/dsize/VERSION"
 printf '\n# updated revision\n' >> "$fixture/tools/dsize/dsize.zsh"
 sh "$fixture/scripts/build-installer.sh" > "$test_directory/build"
 run_mst 0 update dsize
 diff -r "$install_directory/manager" "$test_directory/manager-before-update" > "$test_directory/diff" || fail 'update replaced the manager'
-[ "$(sed -n '1p' "$install_directory/repository/tools/dsize/version")" = 0.4.0 ] || fail 'update did not sync repository'
-[ "$(sed -n '1p' "$install_directory/tools/dsize/version")" = 0.4.0 ] || fail 'update did not record installed version'
+[ "$(sed -n '1p' "$install_directory/repository/tools/dsize/version")" = 0.2.0 ] || fail 'update did not sync repository'
+[ "$(sed -n '1p' "$install_directory/tools/dsize/version")" = 0.2.0 ] || fail 'update did not record installed version'
 download_mode=fail
 count=$(downloads)
 run_mst 0 uninstall dsize
 run_mst 0 install dsize
 [ "$(downloads)" -eq "$count" ] || fail 'reinstall required network'
 run_mst 0 list
-grep -Fq '0.4.0' "$test_directory/out" || fail 'available version came from old manager'
+grep -Fq '0.2.0' "$test_directory/out" || fail 'available version came from manager'
 run_mst 0 uninstall remote
 [ ! -e "$install_directory/tools/remote/bin/helper" ] || fail 'uninstall left downloaded resource'
 download_mode=ok

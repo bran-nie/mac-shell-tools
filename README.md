@@ -97,7 +97,7 @@ mst --version
 dsize --version
 ```
 
-The project uses `MAJOR.MINOR.PATCH` releases, tagged `vX.Y.Z`; development versions include `-dev` and a source digest. Each installed component records its own source release and revision. `mst upgrade` keeps tool versions; `mst update` updates installed tool versions. See [versioning details](docs/development.md#版本与发布).
+The project uses `MAJOR.MINOR.PATCH` releases, tagged `vX.Y.Z`. Each tool has an independent version; development versions include `-dev` and that tool's source digest. Adding tools or changing the manager or documentation leaves other tool versions unchanged. Shared runtime changes update the affected tools' versions. `mst upgrade` keeps installed versions; `mst update` updates installed tools. See [versioning details](docs/development.md#版本与发布).
 
 ## Development
 

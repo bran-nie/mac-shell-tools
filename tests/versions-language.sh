@@ -42,6 +42,7 @@ shell_run() {
 # Read-only commands do not create installation state.
 run 0 --version
 package_version=$(awk '/^# Package version: / {print $4; exit}' "$project_dir/install.sh")
+tool_version=$(sed -n '1p' "$project_dir/tools/dsize/package.meta")
 grep -Fq "mst $package_version (" "$test_directory/out" || fail 'bootstrap version missing'
 run 0 --help
 grep -Fq 'Usage: mst' "$test_directory/out" || fail 'default is not English'
@@ -52,6 +53,7 @@ grep -Fxq 'Language: en' "$test_directory/out" || fail 'default language is not 
 fixture="$test_directory/release"
 copy_package "$project_dir" "$fixture"
 printf '0.2.0\n' > "$fixture/VERSION"
+printf '0.2.0\n' > "$fixture/tools/dsize/VERSION"
 printf '\n# Next tool release\n' >> "$fixture/tools/dsize/dsize.zsh"
 printf '\n# Next tool catalog\n' >> "$fixture/tools/dsize/locales/en.sh"
 printf '\n# Next manager catalog\n' >> "$fixture/locales/en.sh"
@@ -60,10 +62,10 @@ mock_release_curl "$test_directory/mock"
 chmod +x "$test_directory/mock/curl"
 run 0 install dsize
 [ "$(sed -n '1p' "$manager_directory/version")" = "$package_version" ] || fail 'manager version record'
-[ "$(sed -n '1p' "$install_directory/tools/dsize/version")" = "$package_version" ] || fail 'tool version record'
-[ "$(awk -F '\t' '{print $2}' "$install_directory/tools/installed.list")" = "$package_version" ] || fail 'manifest version record'
+[ "$(sed -n '1p' "$install_directory/tools/dsize/version")" = "$tool_version" ] || fail 'tool version record'
+[ "$(awk -F '\t' '{print $2}' "$install_directory/tools/installed.list")" = "$tool_version" ] || fail 'manifest version record'
 shell_run 0 'mst --version; dsize --version'
-grep -Fq "dsize $package_version (" "$test_directory/out" || fail 'tool version output'
+grep -Fq "dsize $tool_version (" "$test_directory/out" || fail 'tool version output'
 
 # A language change affects an already loaded function on the next invocation.
 shell_run 0 'mst config language zh-CN; dsize --help; mst --help'
@@ -135,14 +137,14 @@ grep -Fq '0.2.0' "$manager_directory/version" || fail 'manager version not upgra
 diff -r "$install_directory/tools" "$test_directory/old-tools" > "$test_directory/diff" || fail 'upgrade changed tools'
 cmp -s "$manager_directory/locales/en.sh" "$fixture/locales/en.sh" || fail 'manager language pack not upgraded'
 shell_run 0 'mst list'
-grep -Fq "$package_version" "$test_directory/out" || fail 'installed version lost'
+grep -Fq "$tool_version" "$test_directory/out" || fail 'installed version lost'
 grep -Fq '0.2.0' "$test_directory/out" || fail 'catalog version not upgraded'
 cp -R "$manager_directory" "$test_directory/manager-after-upgrade"
 
 # Update changes the complete tool bundle and its record, without replacing mst.
 # The loaded function retains its version until its source is loaded again.
 shell_run 0 'mst update dsize; dsize --version; source "$HOME/.zshrc"; dsize --version'
-grep -Fq "dsize $package_version (" "$test_directory/out" || fail 'loaded version changed without reload'
+grep -Fq "dsize $tool_version (" "$test_directory/out" || fail 'loaded version changed without reload'
 grep -Fq 'dsize 0.2.0 (' "$test_directory/out" || fail 'new loaded version missing'
 diff -r "$manager_directory" "$test_directory/manager-after-upgrade" > "$test_directory/diff" || fail 'update changed manager'
 cmp -s "$install_directory/tools/dsize/locales/en.sh" "$fixture/tools/dsize/locales/en.sh" || fail 'tool language pack not updated'

@@ -26,9 +26,9 @@ copy_package() {
 render_tool() {
   render_package=$1
   render_name=$2
-  render_version=$(awk '/^# Package version: / {print $4; exit}' "$render_package/install.sh")
-  render_revision=$(awk '/^# Source revision: / {print $4; exit}' "$render_package/install.sh")
-  render_state=$(awk '/^# Source state: / {print $4; exit}' "$render_package/install.sh")
+  render_version=$(sed -n '1p' "$render_package/tools/$render_name/package.meta")
+  render_revision=$(sed -n '2p' "$render_package/tools/$render_name/package.meta")
+  render_state=$(sed -n '3p' "$render_package/tools/$render_name/package.meta")
   sed -e "s/@MST_VERSION@/$render_version/g" -e "s/@MST_REVISION@/$render_revision/g" \
     -e "s/@MST_STATE@/$render_state/g" "$render_package/tools/$render_name/$render_name.zsh"
 }

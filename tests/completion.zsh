@@ -7,6 +7,7 @@ project_directory=$1
 test_directory=$(mktemp -d "${TMPDIR:-/tmp}/mac-shell-tools-completion-test.XXXXXX") || exit 1
 checks=0
 session_started=0
+terminal_output=
 zmodload zsh/zpty || exit 1
 zmodload zsh/zselect || exit 1
 
@@ -27,7 +28,6 @@ fail() {
 # 非阻塞读取，限制等待时间，避免补全故障使 CI 一直挂起。
 read_until() {
   local marker=$1 chunk attempt
-  terminal_output=
   for attempt in {1..200}; do
     while zpty -r mst-completion chunk 2>/dev/null; do
       terminal_output+=$chunk
@@ -43,6 +43,7 @@ read_until() {
 expect_completion() {
   local label=$1 input=$2 expected
   shift 2
+  terminal_output=
   zpty -w -n mst-completion $'\C-U'"$input"$'\t'
   read_until __MST_END__
   for expected in "$@"; do
@@ -92,6 +93,12 @@ cd "$MST_TREE" || exit 1
 _mst_test_complete() {
   zle complete-word
   print -r -- "__MST_BUFFER__${BUFFER}__MST_END__"
+  # Buffer completion precedes ZLE's candidate-list redraw. Deliberately exceed
+  # the former 100 ms grace period so the reader must wait for actual output.
+  if [[ $BUFFER == 'dsize -' ]]; then
+    zmodload zsh/zselect
+    zselect -t 30
+  fi
   zle redisplay
 }
 zle -N _mst_test_complete
@@ -160,20 +167,19 @@ expect_completion npm安装预览 'npmg install live-server --dry' 'npmg install
 expect_completion npm目录选项 'npmg install live-server --prefix=sp' 'npmg install live-server --prefix=space\ directory/'
 expect_completion npm不查询包名 'npmg install nonexistent-package-xyz' 'npmg install nonexistent-package-xyz'
 expect_completion 英文选项列表 'dsize -' 'dsize -'
-zselect -t 10
-while zpty -r mst-completion chunk 2>/dev/null; do terminal_output+=$chunk; done
-[[ $terminal_output == *'Show help'* && $terminal_output == *'Maximum lines, default 25'* ]] || fail "英文补全说明缺失：${(V)terminal_output}"
+read_until 'Show help'
+read_until 'Maximum lines, default 25'
 # Change language in the running shell; the next real Tab must use it immediately.
-zpty -w -n mst-completion $'\C-U''export MST_LANG=zh-CN; print -r -- __MST_LANGUAGE_READY__'$'\n'
+terminal_output=
+# Split the marker in the typed command so terminal echo cannot satisfy it.
+zpty -w -n mst-completion $'\C-U''export MST_LANG=zh-CN; print -r -- __MST_LANGUAGE_""READY__'$'\n'
 read_until __MST_LANGUAGE_READY__
 expect_completion 中文选项列表 'dsize -' 'dsize -'
-zselect -t 10
-while zpty -r mst-completion chunk 2>/dev/null; do terminal_output+=$chunk; done
-[[ $terminal_output == *'显示帮助'* && $terminal_output == *'25'* ]] || fail '中文补全说明未切换'
+read_until '显示帮助'
+read_until '25'
 expect_completion 中文目录补全 'dsize sp' 'dsize space\ directory/'
 expect_completion 中文解压选项 'extract -' 'extract -'
-zselect -t 10
-while zpty -r mst-completion chunk 2>/dev/null; do terminal_output+=$chunk; done
-[[ $terminal_output == *'预览压缩包内容'* && $terminal_output == *'新的目标目录'* ]] || fail '中文解压补全说明缺失'
+read_until '预览压缩包内容'
+read_until '新的目标目录'
 [[ ! -e "$test_directory/scan-log" ]] || fail '补全触发了工具后端命令'
 print -r -- "PASS completion: $checks 项真实 Tab 补全及扫描隔离。"

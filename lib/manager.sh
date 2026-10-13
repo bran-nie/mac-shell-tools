@@ -261,7 +261,10 @@ list_tools() {
     available_version=-
     if contains_file "$tool_files" "$listed_file"; then
       case $invocation_mode in
-        bootstrap) available_version=$package_version ;;
+        bootstrap)
+          listed_component=$(available_component "$listed_file")
+          read_version_file "$listed_component/package.meta" 4
+          available_version=$bundle_version ;;
         installed)
           listed_component=$(available_component "$listed_file")
           check_directory "$listed_component"

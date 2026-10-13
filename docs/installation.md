@@ -102,6 +102,8 @@ Releases use `MAJOR.MINOR.PATCH` and Git tags `vX.Y.Z`. Unreleased builds use ve
 
 `mst list` shows installed and available source versions separately. `mst upgrade` changes mst and its local catalog; `mst update` changes installed tool bundles and their version records. Online synchronization fetches a source snapshot from `main`, rather than selecting a release by comparing version numbers.
 
+Available versions belong to each tool, based on its own VERSION, script, translations, dependency and download declarations, and bundled shared runtime files. Adding tools or changing the manager or documentation does not change other tool versions. Older installations recorded the whole package version; a manager upgrade preserves those records. Run `mst update <tool>` once to adopt the independent version for that tool. During this transition, different columns can reflect the versioning change even when the tool code is unchanged.
+
 ## Migrating the previous layout
 
 Run `mst upgrade` to migrate an installation in `${XDG_CONFIG_HOME:-$HOME/.config}/zsh/tools`. The installed launcher remembers its original paths, so custom configuration locations are preserved even if the current environment differs. Re-running the new bootstrap also recognizes the default old layout.

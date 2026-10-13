@@ -45,16 +45,18 @@ done
 shell_run '(( ! $+functions[dsize] && $+functions[portwho] && $+functions[extract] )) && portwho --help && extract --help && portwho --version && extract --version'
 grep -Fq 'Usage: portwho' "$test_directory/out" || fail 'installed portwho help'
 grep -Fq 'Usage: extract' "$test_directory/out" || fail 'installed extract help'
-package_version=$(sed -n '1p' "$install_directory/manager/version")
-grep -Fq "portwho $package_version (" "$test_directory/out" || fail 'portwho installed version'
-grep -Fq "extract $package_version (" "$test_directory/out" || fail 'extract installed version'
+for tool in portwho extract; do
+  tool_version=$(sed -n '1p' "$project_dir/tools/$tool/package.meta")
+  grep -Fq "$tool $tool_version (" "$test_directory/out" || fail "$tool installed version"
+done
 shell_run 'mst config language zh-CN && portwho --help && extract --help'
 grep -Fq '用法：portwho' "$test_directory/out" || fail 'portwho saved language'
 grep -Fq '用法：extract' "$test_directory/out" || fail 'extract saved language'
 shell_run 'mst config language en && portwho --help && extract --help'
 run install --all
 shell_run '(( $+functions[dsize] && $+functions[portwho] && $+functions[extract] && $+functions[npmg] )) && npmg --help && npmg --version'
-grep -Fq "npmg $package_version (" "$test_directory/out" || fail 'npmg installed version'
+tool_version=$(sed -n '1p' "$project_dir/tools/npmg/package.meta")
+grep -Fq "npmg $tool_version (" "$test_directory/out" || fail 'npmg installed version'
 [ -f "$install_directory/tools/npmg/dependencies.list" ] || fail 'npmg dependencies not packaged'
 shell_run 'mst config language zh-CN && npmg --help && npmg config show'
 grep -Fq '用法：npmg' "$test_directory/out" || fail 'npmg saved language'

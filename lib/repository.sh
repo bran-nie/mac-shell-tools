@@ -82,12 +82,14 @@ validate_downloads() {
     # Remote resources supplement the bundle; they cannot replace its source,
     # language catalogs, ownership or provenance records.
     case $download_path in
-      *.zsh|*.sh|version|install.mode|downloads.list|dependencies.list|*/files.list) fail error.download_manifest "$1" ;;
+      *.zsh|*.sh|VERSION|version|package.meta|install.mode|downloads.list|dependencies.list|*/files.list) fail error.download_manifest "$1" ;;
     esac
   done < "$1"
 }
 
 load_source_catalog() {
+  # The builder validates staged metadata before publishing generated files.
+  catalog_metadata_directory=${1:-$source_directory}
   check_file "$source_directory/scripts/tools.list"
   [ -f "$source_directory/scripts/tools.list" ] || fail error.catalog "$source_directory/scripts/tools.list"
   tool_files=
@@ -101,6 +103,7 @@ load_source_catalog() {
     validate_tool_dependencies "$catalog_component"
     check_file "$catalog_component/$catalog_file"
     [ -f "$catalog_component/$catalog_file" ] || fail error.catalog "$catalog_file"
+    read_version_file "$catalog_metadata_directory/tools/${catalog_file%.zsh}/package.meta" 4
     case $catalog_mode in
       local)
         check_file "$catalog_component/downloads.list"
@@ -160,9 +163,10 @@ prepare_source_payload() {
     payload_source="$source_directory/tools/$payload_name"
     payload_target="$repository_payload/tools/$payload_name"
     mkdir -p "$payload_target"
-    sed -e "s/@MST_VERSION@/$package_version/g" -e "s/@MST_REVISION@/$package_revision/g" \
-      -e "s/@MST_STATE@/$package_state/g" "$payload_source/$payload_file" > "$payload_target/$payload_file"
-    printf '%s\n%s\n%s\n' "$package_version" "$package_revision" "$package_state" > "$payload_target/version"
+    read_version_file "$payload_source/package.meta" 4
+    sed -e "s/@MST_VERSION@/$bundle_version/g" -e "s/@MST_REVISION@/$bundle_revision/g" \
+      -e "s/@MST_STATE@/$bundle_state/g" "$payload_source/$payload_file" > "$payload_target/$payload_file"
+    printf '%s\n%s\n%s\n' "$bundle_version" "$bundle_revision" "$bundle_state" > "$payload_target/version"
     cp "$source_directory/LICENSE" "$payload_target/LICENSE"
     printf '%s\n' "$payload_file" version LICENSE > "$payload_target/files.list"
     if [ -f "$payload_source/dependencies.list" ]; then

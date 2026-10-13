@@ -4,7 +4,9 @@
 
 | 路径 | 职责 |
 | --- | --- |
-| `VERSION` | 统一的来源发布版本 |
+| `VERSION` | 管理器及整包的发布版本 |
+| `tools/<名称>/VERSION` | 工具独立的语义版本 |
+| `tools/<名称>/package.meta` | 生成的工具版本、来源提交、状态及组件摘要 |
 | `tools/<名称>/<名称>.zsh` | 工具函数、参数校验和补全 |
 | `tools/<名称>/locales/` | 工具自己的英文及中文文案 |
 | `tools/init.zsh` | 按自身位置显式加载工具；安装时按选择渲染管理区 |
@@ -39,24 +41,26 @@ sh scripts/build-installer.sh --check
 
 生成过程使用基础 Shell 工具，SHA-256 优先使用 sha256sum，缺少时使用 shasum；安装后的运行时不需要这两个构建命令。不嵌入时间或绝对机器路径。源码相同时，常规构建复用已记录的提交来源，结果可重复。检查使用同一来源重新生成并比较全部内容，发布生成产物后的新提交不会让检查误报过期。
 
-工具清单每行一个 .zsh 文件名，标识以小写字母或数字开头，仅允许小写字母、数字和连字符。不放注释、重复项、路径或保留文件名。生成器使用运行时解析器校验工具清单、安装方式和在线资源清单，并检查引导脚本语法；提交时包含同步生成的 install.sh 和 package.meta。新增工具只改变来源记录，不增加引导逻辑或源码载荷。
+工具清单每行一个 .zsh 文件名，标识以小写字母或数字开头，仅允许小写字母、数字和连字符。不放注释、重复项、路径或保留文件名。生成器使用运行时解析器校验工具清单、组件版本、安装方式和在线资源清单，并检查引导脚本语法；提交时包含同步生成的 install.sh、根 package.meta 和各工具的 package.meta。新增工具只改变来源记录，不增加引导逻辑或源码载荷。
 
 ## 版本与发布
 
-根目录 VERSION 是唯一的发布版本来源，当前为 `0.1.0-dev`。采用 MAJOR.MINOR.PATCH：正式稳定版本的破坏性接口变更提升主版本，兼容功能增加提升次版本，修复提升修订号。开发阶段保留 -dev；首次正式发布使用 0.1.0，后续 0.x 的不兼容调整提升次版本并说明。
+根目录 VERSION 控制管理器及整包版本；每个工具的 tools/<名称>/VERSION 独立控制该工具的版本，当前均为 `0.1.0-dev`。采用 MAJOR.MINOR.PATCH：正式稳定版本的破坏性接口变更提升主版本，兼容功能增加提升次版本，修复提升修订号。开发阶段保留 -dev；首次正式发布使用 0.1.0，后续 0.x 的不兼容调整提升次版本并说明。发布工具时只修改受影响工具的 VERSION。
 
 开发包附加 12 位源码摘要，例如 `0.1.0-dev+0123456789ab`，涵盖受控运行时源码、版本、清单、生成脚本和许可。包头记录完整摘要、来源 Git 提交及 clean / modified / unknown 状态。工具版本常量在同步到本地工具仓库时替换，以便 --version 表示当前已加载的函数，而非磁盘上可能已经更新的文件。源码直接加载显示 `development (unbuilt; unknown)`。
 
-普通开发构建如实标记尚未提交的源码；`--refresh-revision` 显式刷新来源记录。没有 Git 信息的源码包记录 unknown。来源提交是构建依据的源码快照，可以早于生成安装包的发布提交，不冒充后者。
+每个工具的摘要独立计算，包含自身 VERSION、Zsh 脚本、语言包、dependencies.list、install.mode、downloads.list、随包 LICENSE，以及有语言包时分发的 lib/i18n.sh。根 VERSION、管理器、其他工具、文档、测试及生成的元数据不参与工具摘要。因此新增 npmg 不改变 dsize 的版本；修改共享 i18n 运行文件会改变所有使用它的工具版本。各 tools/<名称>/package.meta 同样是四行纯数据，安装时读取对应记录，普通安装不需要 Git 或摘要计算工具。
+
+普通开发构建如实标记尚未提交的源码；工具状态仅检查其摘要输入文件。`--refresh-revision` 显式刷新整包来源及尚未确认提交的工具来源；已记录 clean 且内容未变的工具保留原来源提交。没有 Git 信息且没有可复用记录时标记 unknown。来源提交是构建依据的源码快照，可以早于生成安装包的发布提交，不冒充后者。
 
 正式发布步骤：
 
-1. 更新 VERSION 为 X.Y.Z，整理更新记录，构建并完成目标平台门禁。
+1. 更新整包及受影响工具的 VERSION 为各自的目标版本，整理更新记录，构建并完成目标平台门禁。
 2. 提交受控源码，确保这些源文件干净；生成产物可以留到下一步提交。
 3. 执行 `sh scripts/build-installer.sh --refresh-revision`，再次运行门禁，核对包头的版本、来源提交和 clean 状态。
-4. 提交生成的 install.sh 和 package.meta，为发布提交打 vX.Y.Z 标签并发布。随后将 VERSION 改为下一版本的 -dev。生成脚本不自动提交、打标签或推送。
+4. 提交生成的 install.sh、根 package.meta 和 tools/*/package.meta，为整包发布提交打 vX.Y.Z 标签并发布。随后将对应 VERSION 改为下一版本的 -dev。生成脚本不自动提交、打标签或推送。
 
-`manager/version` 与 `tools/<名称>/version` 各保存三行：来源版本、来源提交、源码状态。`tools/installed.list` 每行以 Tab 分隔记录工具文件名和上述三项，未知来源写 unknown。版本表示组件来自哪个项目包，不为各工具维护独立发布序列。
+`manager/version` 与 `tools/<名称>/version` 各保存三行：组件版本、来源提交、源码状态。`tools/installed.list` 每行以 Tab 分隔记录工具文件名和上述三项，未知来源写 unknown。旧安装的整包版本记录继续保留，只有显式安装或更新该工具时才切换成独立工具版本，不在 list 或 upgrade 时改写安装记录。
 
 mst upgrade 不改工具版本；mst update 更新工具源码、版本和配套语言包。mst list 的可用版本来自 repository/tools/<名称>/version，与管理器版本独立；在线同步获取 main 的源码快照，不按版本比较选取发布。
 
@@ -70,9 +74,9 @@ lib/i18n.sh 按纯文本读取根 config.conf 的 language=en|zh-CN，不 source
 
 ## 新增工具
 
-1. 新建 tools/<名称>/<名称>.zsh，定义函数和补全；内部函数使用项目及工具前缀。帮助与错误放入组件的 locales/en.sh 和 locales/zh-CN.sh，使用共享 i18n 接口。
+1. 新建 tools/<名称>/<名称>.zsh 和单行 tools/<名称>/VERSION，定义函数和补全；内部函数使用项目及工具前缀。帮助与错误放入组件的 locales/en.sh 和 locales/zh-CN.sh，使用共享 i18n 接口。
 2. 在源码 init.zsh 的管理区显式 source，并检查文件存在；不要 glob 执行目录中的脚本。
-3. 将文件名加入 scripts/tools.list，重新生成 install.sh 和 package.meta。同源码快照中的脚本、语言包及许可在同步时渲染成 repository/tools/<名称>/ 下的独立组件。
+3. 将文件名加入 scripts/tools.list，重新生成 install.sh、根 package.meta 和 tools/*/package.meta。同源码快照中的脚本、语言包及许可在同步时渲染成 repository/tools/<名称>/ 下的独立组件。
 4. 添加实际行为检查及工具独立的双语 README；根 README 表格只添加名称、简介和链接。
 5. 在工具声明支持的平台上运行完整门禁，确认 BSD / GNU 命令参数与行为。用户通过 mst upgrade 获取新工具目录，再按需 mst install <名称>。
 
@@ -135,6 +139,7 @@ assets/data<TAB>https://example.org/data<TAB>64位小写SHA-256<TAB>file
 - catalog：实际工具包的选择安装、完整资源、版本、已加载函数语言切换和逐项卸载，保留个人文件及管理器。
 - repository：轻量引导大小、源码与启用版本隔离、普通工具离线重装、在线资源及校验失败、可执行权限、废弃资源清理和不安全归档拒绝。
 - versions-language：版本来源和独立记录、加载版本与磁盘版本、构建及发布可重复性、语言切换、优先级、回退、纯数据配置、消息键及格式参数一致性。
+- tool-versions：新增工具及管理器变更不改变已有工具版本、独立脚本和依赖更新、共享运行文件变更、旧记录过渡及工具元数据校验。
 - migration：原目录、原清单和旧会话兼容、自定义路径、不可用工具、相对个人引用、双锁、中断及恢复、冲突与缺失保护。
 - platform：模拟系统标识验证允许及拒绝分支、Bash 启动与加载边界、缺少 Zsh 时不写配置、非交互加载不初始化补全。模拟标识不代替真实 Linux 验证。
 - completion：裸 Zsh 中共享入口自动初始化后的真实 Tab 编辑缓冲区、双语说明、版本选项、数值及等号、顺序、分隔符、目录限定及不扫描。
