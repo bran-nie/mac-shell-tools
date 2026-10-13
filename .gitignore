@@ -4,3 +4,5 @@
 
 # Local development records
 /references/
+/.artifacts/
+__pycache__/

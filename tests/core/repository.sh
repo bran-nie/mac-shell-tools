@@ -14,7 +14,7 @@ download_mode=ok
 archive_override=
 mkdir -p "$test_home" "$test_directory/mock" "$test_directory/tmp"
 copy_package "$project_dir" "$fixture"
-printf '%s\n' dsize.zsh remote.zsh > "$fixture/scripts/tools.list"
+printf '%s\n' sample.zsh remote.zsh > "$fixture/scripts/tools.list"
 mkdir -p "$fixture/tools/remote"
 printf '%s\n' 0.1.0-dev > "$fixture/tools/remote/VERSION"
 cat > "$fixture/tools/remote/remote.zsh" <<'TOOL'
@@ -59,14 +59,14 @@ downloads() {
 if grep -Fq 'remote()' "$fixture/install.sh"; then fail 'bootstrap embeds tool source'; fi
 run_source
 cmp -s "$fixture/lib/manager.sh" "$install_directory/manager/manager-core.sh" || fail 'manager embeds tool payload'
-[ -f "$install_directory/repository/tools/dsize/dsize.zsh" ] || fail 'initial scripts were not synchronized'
+[ -f "$install_directory/repository/tools/sample/sample.zsh" ] || fail 'initial scripts were not synchronized'
 [ -f "$install_directory/repository/tools/remote/downloads.list" ] || fail 'online metadata not synchronized'
 [ ! -e "$install_directory/repository/tools/remote/bin/helper" ] || fail 'sync downloaded online assets'
 [ ! -e "$install_directory/tools/installed.list" ] || fail 'sync enabled tools'
 [ "$(downloads)" -eq 0 ] || fail 'local snapshot synchronization accessed the network'
 
 download_mode=fail
-run_mst 0 install dsize
+run_mst 0 install sample
 run_mst 0 list
 [ "$(downloads)" -eq 0 ] || fail 'ordinary installation accessed the network'
 cp "$install_directory/tools/installed.list" "$test_directory/installed-before-online"
@@ -86,25 +86,25 @@ env HOME="$test_home" /bin/zsh -f -c 'source "$HOME/.zshrc"; remote' > "$test_di
 
 cp -R "$install_directory/tools" "$test_directory/tools-before-upgrade"
 printf '0.3.0\n' > "$fixture/VERSION"
-printf '\n# synchronized revision\n' >> "$fixture/tools/dsize/dsize.zsh"
+printf '\n# synchronized revision\n' >> "$fixture/tools/sample/sample.zsh"
 sh "$fixture/scripts/build-installer.sh" > "$test_directory/build"
 run_mst 0 upgrade
 diff -r "$install_directory/tools" "$test_directory/tools-before-upgrade" > "$test_directory/diff" || fail 'upgrade changed installed tools'
-tool_matches "$fixture" dsize "$install_directory/repository/tools/dsize/dsize.zsh" || fail 'upgrade did not sync tool source'
+tool_matches "$fixture" sample "$install_directory/repository/tools/sample/sample.zsh" || fail 'upgrade did not sync tool source'
 [ ! -e "$install_directory/repository/tools/remote/bin/helper" ] || fail 'upgrade downloaded online resources'
 cp -R "$install_directory/manager" "$test_directory/manager-before-update"
 printf '0.4.0\n' > "$fixture/VERSION"
-printf '0.2.0\n' > "$fixture/tools/dsize/VERSION"
-printf '\n# updated revision\n' >> "$fixture/tools/dsize/dsize.zsh"
+printf '0.2.0\n' > "$fixture/tools/sample/VERSION"
+printf '\n# updated revision\n' >> "$fixture/tools/sample/sample.zsh"
 sh "$fixture/scripts/build-installer.sh" > "$test_directory/build"
-run_mst 0 update dsize
+run_mst 0 update sample
 diff -r "$install_directory/manager" "$test_directory/manager-before-update" > "$test_directory/diff" || fail 'update replaced the manager'
-[ "$(sed -n '1p' "$install_directory/repository/tools/dsize/version")" = 0.2.0 ] || fail 'update did not sync repository'
-[ "$(sed -n '1p' "$install_directory/tools/dsize/version")" = 0.2.0 ] || fail 'update did not record installed version'
+[ "$(sed -n '1p' "$install_directory/repository/tools/sample/version")" = 0.2.0 ] || fail 'update did not sync repository'
+[ "$(sed -n '1p' "$install_directory/tools/sample/version")" = 0.2.0 ] || fail 'update did not record installed version'
 download_mode=fail
 count=$(downloads)
-run_mst 0 uninstall dsize
-run_mst 0 install dsize
+run_mst 0 uninstall sample
+run_mst 0 install sample
 [ "$(downloads)" -eq "$count" ] || fail 'reinstall required network'
 run_mst 0 list
 grep -Fq '0.2.0' "$test_directory/out" || fail 'available version came from manager'
@@ -129,11 +129,11 @@ printf 'touch %s/executed\n' "$test_home" > "$install_directory/repository/catal
 run_mst 1 list
 [ ! -e "$test_home/executed" ] || fail 'catalog executed'
 cp "$test_directory/catalog" "$install_directory/repository/catalog.tsv"
-mv "$install_directory/repository/tools/dsize/locales" "$test_directory/locales"
-ln -s "$test_directory/locales" "$install_directory/repository/tools/dsize/locales"
-run_mst 1 install dsize
-rm "$install_directory/repository/tools/dsize/locales"
-mv "$test_directory/locales" "$install_directory/repository/tools/dsize/locales"
+mv "$install_directory/repository/tools/sample/locales" "$test_directory/locales"
+ln -s "$test_directory/locales" "$install_directory/repository/tools/sample/locales"
+run_mst 1 install sample
+rm "$install_directory/repository/tools/sample/locales"
+mv "$test_directory/locales" "$install_directory/repository/tools/sample/locales"
 
 cp -R "$install_directory/tools" "$test_directory/stable-tools"
 cp -R "$install_directory/manager" "$test_directory/stable-manager"
@@ -150,7 +150,7 @@ with tarfile.open(destination, "w:gz") as archive:
         name = "release/" + path.relative_to(source).as_posix()
         if kind == "missing-metadata" and name == "release/package.meta":
             continue
-        if kind == "invalid-tool" and name == "release/tools/dsize/dsize.zsh":
+        if kind == "invalid-tool" and name == "release/tools/sample/sample.zsh":
             data = b"if (\n"
             entry = tarfile.TarInfo(name)
             entry.size = len(data)
@@ -174,12 +174,12 @@ archive_override=
 rm -rf "$install_directory/repository"
 download_mode=fail
 run_mst 1 list
-run_mst 0 uninstall dsize
-run_mst 1 install dsize
+run_mst 0 uninstall sample
+run_mst 1 install sample
 download_mode=ok
 run_mst 0 upgrade
-[ -f "$install_directory/repository/tools/dsize/dsize.zsh" ] || fail 'upgrade cannot repair a missing repository'
-[ ! -e "$install_directory/tools/dsize/dsize.zsh" ] || fail 'cache repair reinstalled an uninstalled tool'
+[ -f "$install_directory/repository/tools/sample/sample.zsh" ] || fail 'upgrade cannot repair a missing repository'
+[ ! -e "$install_directory/tools/sample/sample.zsh" ] || fail 'cache repair reinstalled an uninstalled tool'
 for temporary in "$test_directory/tmp"/mac-shell-tools-*; do
   [ ! -e "$temporary" ] || fail 'operation left temporary files'
 done

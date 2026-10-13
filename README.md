@@ -110,7 +110,7 @@ sh scripts/build-installer.sh
 sh scripts/check.sh
 ```
 
-Checks use temporary HOME/config directories and mock downloads, including real Tab completion and login-session tests in pseudo-terminals. The same suite can run on macOS and Linux; CI currently runs macOS. See [development notes](docs/development.md).
+Checks use temporary HOME/config directories and mock downloads, including real Tab completion and login-session tests in pseudo-terminals. PR/main checks select affected suites on macOS. Manual, release and weekly full runs also cover Ubuntu. Use `sh scripts/check.sh --tool npmg` for one tool; timing reports and logs are saved under `.artifacts/`. See [development notes](docs/development.md).
 
 ## License
 

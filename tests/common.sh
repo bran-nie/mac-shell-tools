@@ -8,12 +8,19 @@ file_stat() {
   esac
 }
 
+# These are ASCII protocol fields. macOS awk in en_US.UTF-8 can collate a
+# Chinese heading containing '*' equal to '*', accidentally returning two rows.
+current_language_marker() {
+  LC_ALL=C awk '$1 == "*" {print $2}' "$1"
+}
+
 copy_package() {
   package_source=$1
   package_target=$2
   mkdir -p "$package_target/scripts" "$package_target/tools" "$package_target/lib"
   cp "$package_source/scripts/build-installer.sh" \
-    "$package_source/scripts/bootstrap.sh.in" "$package_source/scripts/tools.list" "$package_target/scripts/"
+    "$package_source/scripts/bootstrap.sh.in" "$package_source/scripts/loader.zsh.in" \
+    "$package_source/scripts/tools.list" "$package_target/scripts/"
   cp "$package_source/lib/"*.sh "$package_source/lib/mst.zsh" "$package_target/lib/"
   cp "$package_source/tools/init.zsh" "$package_target/tools/"
   for package_tool in $(cat "$package_source/scripts/tools.list"); do

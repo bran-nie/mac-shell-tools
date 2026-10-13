@@ -9,7 +9,8 @@
 | `tools/<名称>/package.meta` | 生成的工具版本、来源提交、状态及组件摘要 |
 | `tools/<名称>/<名称>.zsh` | 工具函数、参数校验和补全 |
 | `tools/<名称>/locales/` | 工具自己的英文及中文文案 |
-| `tools/init.zsh` | 按自身位置显式加载工具；安装时按选择渲染管理区 |
+| `tools/init.zsh` | 由 loader 模板和工具清单生成的显式加载入口，不手动编辑 |
+| `scripts/loader.zsh.in` | 源码入口的共享加载逻辑；安装时仍按选择渲染管理区 |
 | `lib/mst.zsh` | 任意目录可用的 Zsh 管理函数，定位已安装启动器 |
 | `lib/i18n.sh`、`locales/` | 纯数据配置读取、语言选择和管理器文案 |
 | `scripts/tools.list` | 可用工具文件名，不含保留的 init.zsh 和 mst.zsh |
@@ -19,7 +20,9 @@
 | `scripts/build-installer.sh` | 生成轻量引导及纯数据来源记录，不嵌入工具 |
 | `install.sh` | 轻量引导生成产物，不手动修改 |
 | `package.meta` | 四行纯数据：版本、来源提交、源码状态、摘要 |
-| `tests/` | 使用平台原生命令及隔离 HOME 的 macOS / Linux 验证 |
+| `tests/core/`、`tests/fixtures/` | 公共能力测试及固定的合成工具包，不复制真实工具目录 |
+| `tests/tools/<名称>/` | 自动发现的工具行为、补全及可选安装测试 |
+| `scripts/ci/` | 变更规划、隔离执行、计时报告及结果汇总 |
 | `docs/tools/<名称>/` | 每个工具独立的英文及中文文档 |
 
 普通工具安装、查询和卸载不需要网络；源码同步使用系统 curl 和 tar。在线工具只在安装或更新时下载其声明的额外资源。工具使用系统命令：dsize 依赖 du/sort/tail，portwho 依赖 lsof，extract 按格式依赖 tar 或支持 ZipInfo 的 unzip；npmg 需要当前 PATH 中的 Node 和 npm，实际包操作沿用 npm 的联网行为。完整测试额外使用 Python 3 创建回环监听及压缩包边界用例，使用 zip 创建加密测试包，两者不是工具运行依赖。npmg 契约测试使用隔离替身，不要求机器已安装 Node/npm。
@@ -39,9 +42,9 @@ sh scripts/check.sh
 sh scripts/build-installer.sh --check
 ```
 
-生成过程使用基础 Shell 工具，SHA-256 优先使用 sha256sum，缺少时使用 shasum；安装后的运行时不需要这两个构建命令。不嵌入时间或绝对机器路径。源码相同时，常规构建复用已记录的提交来源，结果可重复。检查使用同一来源重新生成并比较全部内容，发布生成产物后的新提交不会让检查误报过期。
+生成过程使用基础 Shell 工具，SHA-256 优先使用 sha256sum，缺少时使用 shasum；同一次构建批量计算每个唯一输入文件的摘要，整包及工具摘要复用这些结果，保持原有顺序及摘要格式；下次构建重新读取所有输入，不跨构建缓存可变样例。安装后的运行时不需要这两个构建命令。不嵌入时间或绝对机器路径。源码相同时，常规构建复用已记录的提交来源，结果可重复。检查使用同一来源重新生成并比较全部内容，发布生成产物后的新提交不会让检查误报过期。
 
-工具清单每行一个 .zsh 文件名，标识以小写字母或数字开头，仅允许小写字母、数字和连字符。不放注释、重复项、路径或保留文件名。生成器使用运行时解析器校验工具清单、组件版本、安装方式和在线资源清单，并检查引导脚本语法；提交时包含同步生成的 install.sh、根 package.meta 和各工具的 package.meta。新增工具只改变来源记录，不增加引导逻辑或源码载荷。
+工具清单每行一个 .zsh 文件名，标识以小写字母或数字开头，仅允许小写字母、数字和连字符。不放注释、重复项、路径或保留文件名。生成器使用运行时解析器校验工具清单、组件版本、安装方式和在线资源清单，并检查引导脚本语法；提交时包含同步生成的 install.sh、tools/init.zsh、根 package.meta 和各工具的 package.meta。新增工具只改变来源记录，不增加引导逻辑或源码载荷。
 
 ## 版本与发布
 
@@ -75,12 +78,12 @@ lib/i18n.sh 按纯文本读取根 config.conf 的 language=en|zh-CN，不 source
 ## 新增工具
 
 1. 新建 tools/<名称>/<名称>.zsh 和单行 tools/<名称>/VERSION，定义函数和补全；内部函数使用项目及工具前缀。帮助与错误放入组件的 locales/en.sh 和 locales/zh-CN.sh，使用共享 i18n 接口。
-2. 在源码 init.zsh 的管理区显式 source，并检查文件存在；不要 glob 执行目录中的脚本。
-3. 将文件名加入 scripts/tools.list，重新生成 install.sh、根 package.meta 和 tools/*/package.meta。同源码快照中的脚本、语言包及许可在同步时渲染成 repository/tools/<名称>/ 下的独立组件。
-4. 添加实际行为检查及工具独立的双语 README；根 README 表格只添加名称、简介和链接。
+2. 将文件名加入 scripts/tools.list；生成器从 scripts/loader.zsh.in 生成 tools/init.zsh 的显式注册，不 glob 执行目录中的脚本。
+3. 运行 sh scripts/build-installer.sh，同步 tools/init.zsh、install.sh、根 package.meta 和 tools/*/package.meta。同源码快照中的脚本、语言包及许可在同步时渲染成 repository/tools/<名称>/ 下的独立组件。
+4. 添加 tests/tools/<名称>/behavior.zsh 和 completion.zsh；需要专门的安装用例时添加 install.sh。补全用例调用共享 expect_completion / read_until / set_language，不实现另一套 PTY 驱动。添加工具独立的双语 README；根 README 表格只添加名称、简介和链接。CI 自动发现目录，不再修改工作流或公共测试列表。
 5. 在工具声明支持的平台上运行完整门禁，确认 BSD / GNU 命令参数与行为。用户通过 mst upgrade 获取新工具目录，再按需 mst install <名称>。
 
-源码入口用于直接加载，安装器根据目标机器清单渲染，不会全量启用。管理测试临时生成双工具包，以发现选择安装错误。工具默认仅定义函数并注册必要补全；npmg 额外在加载时读取纯文本 npmg.conf，去重追加生效 prefix 的 bin 目录到 PATH，保留当前 Node/npm 优先级，不创建目录或持久化 npm 自身配置。配置命令保存独立 prefix 并同步当前 PATH，配置及 npm 包不纳入工具卸载资源。source 时不扫描磁盘、不联网、不输出启动信息、不运行 compinit、不改变调用者的选项或工作目录；补全不执行工具后端或联网查询，仅在请求目录/文件补全时遍历对应路径。共享入口在交互式 Zsh 缺少 compdef 时运行标准 compinit；已有补全系统及非交互加载均跳过初始化。
+源码入口用于直接加载，安装器根据目标机器清单渲染，不会全量启用。管理测试使用 sample、second、third、dependent 组成的固定合成包，按用例裁剪或增添替身，验证选择安装、迁移和独立版本。真实工具分别执行通用安装契约，并通过完整目录的加载冒烟检查验证组合。工具默认仅定义函数并注册必要补全；npmg 额外在加载时读取纯文本 npmg.conf，去重追加生效 prefix 的 bin 目录到 PATH，保留当前 Node/npm 优先级，不创建目录或持久化 npm 自身配置。配置命令保存独立 prefix 并同步当前 PATH，配置及 npm 包不纳入工具卸载资源。source 时不扫描磁盘、不联网、不输出启动信息、不运行 compinit、不改变调用者的选项或工作目录；补全不执行工具后端或联网查询，仅在请求目录/文件补全时遍历对应路径。共享入口在交互式 Zsh 缺少 compdef 时运行标准 compinit；已有补全系统及非交互加载均跳过初始化。
 
 ## 分发与本地工具仓库
 
@@ -136,16 +139,53 @@ assets/data<TAB>https://example.org/data<TAB>64位小写SHA-256<TAB>file
 - install：首次与重复安装、备份、用户内容保留、路径转义、链接及权限、写入失败恢复、独立文件及 stdin 分发。
 - management：双工具包中的选择安装、更新与卸载、清单校验、缺失修复、资源归属及个人文件保护。
 - mst：任意目录入口、默认仅管理器、模拟在线发布、更新与升级分离、无效下载保留文件、固定自定义路径。
-- catalog：实际工具包的选择安装、完整资源、版本、已加载函数语言切换和逐项卸载，保留个人文件及管理器。
+- package：每个真实工具与一个合成同伴组成小包，验证选择/全量安装、资源与所有权、版本、已加载函数语言切换、逐项/全量卸载，保留个人文件及管理器。
 - repository：轻量引导大小、源码与启用版本隔离、普通工具离线重装、在线资源及校验失败、可执行权限、废弃资源清理和不安全归档拒绝。
-- versions-language：版本来源和独立记录、加载版本与磁盘版本、构建及发布可重复性、语言切换、优先级、回退、纯数据配置、消息键及格式参数一致性。
+- versions-language：版本来源和独立记录、加载版本与磁盘版本、构建及发布可重复性、语言切换、优先级、回退、纯数据配置。消息键和格式参数一致性在 base 静态检查中覆盖所有真实语言包。
 - tool-versions：新增工具及管理器变更不改变已有工具版本、独立脚本和依赖更新、共享运行文件变更、旧记录过渡及工具元数据校验。
 - migration：原目录、原清单和旧会话兼容、自定义路径、不可用工具、相对个人引用、双锁、中断及恢复、冲突与缺失保护。
 - platform：模拟系统标识验证允许及拒绝分支、Bash 启动与加载边界、缺少 Zsh 时不写配置、非交互加载不初始化补全。模拟标识不代替真实 Linux 验证。
 - completion：裸 Zsh 中共享入口自动初始化后的真实 Tab 编辑缓冲区、双语说明、版本选项、数值及等号、顺序、分隔符、目录限定及不扫描。
 - sessions：真实伪终端中新登录 Zsh、补全自动初始化及已有补全复用、个人注册保留、重复加载、固定 ZDOTDIR、锁和暂存清理、禁用参数、语言配置不启动会话、管道及输出重定向。
 
-测试不指向真实 HOME，下载使用本地 curl 替身，不安装远端代码。文件身份使用按平台选择的 BSD / GNU stat 参数；补全使用各平台 Zsh 自带的 fpath。可绕过权限的身份下会明确输出权限用例 SKIP，受控失败仍执行。当前 CI 使用 macOS runner；Linux 可在目标机器运行同一套门禁，真实平台结果分别记录，不以模拟 uname 或 macOS 结果宣称 Ubuntu 实测通过。
+测试不指向真实 HOME，下载使用本地 curl 替身，不安装远端代码。文件身份使用按平台选择的 BSD / GNU stat 参数；补全使用各平台 Zsh 自带的 fpath。可绕过权限的身份下会明确输出权限用例 SKIP，受控失败仍执行。普通 PR 与 main 推送使用 macOS runner；手动、发布和每周全量检查同时运行 macOS 与 Ubuntu。真实平台结果分别记录，不以模拟 uname 或 macOS 结果宣称 Ubuntu 实测通过。
+
+## 按影响范围运行 CI
+
+工作流始终触发，在工作流内部选择任务。顺序是 `plan → base → 并行测试 → ci-result`。base 始终检查语法、生成产物、组件/测试目录约定、双语文案、文档链接及 CI 规划器的回归用例；这里没有真实工具业务调用。
+
+| 变更 | 行为检查范围 |
+| --- | --- |
+| README、docs、CHANGELOG | base，不执行行为测试 |
+| tools/<名称>/ 源码或 tests/tools/<名称>/ | 对应工具的行为、补全、安装契约及可选安装测试，加全部工具的快速加载冒烟 |
+| 新增工具或从清单删除工具 | 新工具自身测试、公共管理/分发/会话测试、真实组件安装契约及加载冒烟；其他工具不重跑业务用例 |
+| 根 locales/ | 管理器语言及补全测试 |
+| lib/manager.sh、lib/repository.sh、lib/mst.zsh | 公共能力、真实组件安装契约及加载冒烟 |
+| lib/i18n.sh、加载模板、构建/引导、共享测试设施、CI、未知路径 | 保守全量 |
+| 只改变生成文件 | base 重新生成并逐字比较，手动改坏产物同样失败 |
+| 手动、release 发布、每周一 03:17 UTC | macOS 和 Ubuntu 全量 |
+
+工具版本是否变化不参与选测。PR 使用完整合并基线到本次测试提交的差异；main 推送使用本工作流最近一次成功且属于当前历史的 main 提交作为基线，覆盖其后的所有提交，包括源码提交和单独的来源记录提交。API 不可用、基线不存在、历史不可用时执行全量。重命名保留新旧两个路径，删除也参与规划。PR 新运行取消旧运行；main 不主动取消进行中的运行。
+
+公共能力拆成 manager、distribution、language、sessions 四组，每个真实工具一个任务，最多同时运行四个任务。短小用例在组内执行，共享组内固定样例，避免为每个断言启动 runner。新增工具会增加自己的测试任务，公共能力用例的假工具数量保持固定。
+
+`ci-result` 是稳定的最终检查名，适合设置为分支保护的必需检查。它校验 plan/base/矩阵结果、每个预期任务和每个预期测试套件的报告；失败、取消、报告缺失、重复、旧提交报告和意外 skipped 都不能得到成功。文档变更只允许计划内的矩阵跳过，base 仍必须成功。
+
+本地入口：
+
+```sh
+# 完整验证
+sh scripts/check.sh
+# 一种工具，附带 base 和快速加载检查
+sh scripts/check.sh --tool npmg
+# 只运行指定公共能力组
+sh scripts/check.sh --target language
+# 检查已提交的完整变更范围，再执行该计划
+python3 scripts/ci/plan.py --base <已验证提交> --head HEAD --output .artifacts/plan.json
+sh scripts/check.sh --plan .artifacts/plan.json
+```
+
+报告默认写入 `.artifacts/<平台>-<任务>/`，每个套件保留完整输出、耗时和退出码；PTY 用例另存 terminal.log。CI 同时把失败上下文放入错误注释和步骤摘要，并保存报告及选测计划 14 天。单套件有超时，超时终止该套件的进程组并记为失败，不重试掩盖故障。语言状态列是 ASCII 协议字段，解析使用 C locale，避免 macOS awk 在 en_US.UTF-8 下把中文标题与星号比较为相等；展示文案仍按用户选择的语言输出。
 
 ## 人工终端检查
 

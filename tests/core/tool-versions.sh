@@ -47,72 +47,72 @@ assert_list_version() {
   checks=$((checks + 1))
 }
 
-# Reproduce adding npmg to a release with dsize/portwho already installed.
-printf '%s\n' dsize.zsh portwho.zsh extract.zsh > "$fixture/scripts/tools.list"
+# Reproduce adding dependent to a release with sample/second already installed.
+printf '%s\n' sample.zsh second.zsh third.zsh > "$fixture/scripts/tools.list"
 build
-for tool in dsize portwho extract; do cp "$fixture/tools/$tool/package.meta" "$test_directory/baseline/$tool"; done
-dsize_version=$(sed -n '1p' "$test_directory/baseline/dsize")
-portwho_version=$(sed -n '1p' "$test_directory/baseline/portwho")
-run_source 0 install dsize portwho
+for tool in sample second third; do cp "$fixture/tools/$tool/package.meta" "$test_directory/baseline/$tool"; done
+sample_version=$(sed -n '1p' "$test_directory/baseline/sample")
+second_version=$(sed -n '1p' "$test_directory/baseline/second")
+run_source 0 install sample second
 cp -R "$install_directory/tools" "$test_directory/installed-before"
-printf '%s\n' npmg.zsh >> "$fixture/scripts/tools.list"
+printf '%s\n' dependent.zsh >> "$fixture/scripts/tools.list"
 printf '0.8.0-dev\n' > "$fixture/VERSION"
 printf '\n# manager-only change\n' >> "$fixture/lib/mst.zsh"
 printf '\n# manager-only translation\n' >> "$fixture/locales/en.sh"
 build
-for tool in dsize portwho extract; do
+for tool in sample second third; do
   same "$test_directory/baseline/$tool" "$fixture/tools/$tool/package.meta" 'new tool/manager changed an existing tool version'
 done
 run_source 0 upgrade
 diff -r "$test_directory/installed-before" "$install_directory/tools" > "$test_directory/diff" || fail 'upgrade rewrote installed tools'
 list_installed
-assert_list_version dsize "$dsize_version" "$dsize_version"
-assert_list_version portwho "$portwho_version" "$portwho_version"
+assert_list_version sample "$sample_version" "$sample_version"
+assert_list_version second "$second_version" "$second_version"
 run_source 0 list
-assert_list_version dsize "$dsize_version" "$dsize_version"
+assert_list_version sample "$sample_version" "$sample_version"
 
 # Each shipped tool input participates; unrelated tools keep their metadata.
-for asset in npmg.zsh locales/en.sh dependencies.list; do
-  cp "$fixture/tools/npmg/package.meta" "$test_directory/before-npmg"
+for asset in dependent.zsh locales/en.sh dependencies.list; do
+  cp "$fixture/tools/dependent/package.meta" "$test_directory/before-dependent"
   case $asset in
-    dependencies.list) printf 'another-runtime\n' >> "$fixture/tools/npmg/$asset" ;;
-    *) printf '\n# tool change\n' >> "$fixture/tools/npmg/$asset" ;;
+    dependencies.list) printf 'another-runtime\n' >> "$fixture/tools/dependent/$asset" ;;
+    *) printf '\n# tool change\n' >> "$fixture/tools/dependent/$asset" ;;
   esac
   build
-  changed "$test_directory/before-npmg" "$fixture/tools/npmg/package.meta" "$asset did not change npmg version"
-  same "$test_directory/baseline/dsize" "$fixture/tools/dsize/package.meta" 'npmg edit changed dsize'
+  changed "$test_directory/before-dependent" "$fixture/tools/dependent/package.meta" "$asset did not change dependent version"
+  same "$test_directory/baseline/sample" "$fixture/tools/sample/package.meta" 'dependent edit changed sample'
 done
-printf '\n# dsize change\n' >> "$fixture/tools/dsize/dsize.zsh"
+printf '\n# sample change\n' >> "$fixture/tools/sample/sample.zsh"
 build
-new_dsize_version=$(sed -n '1p' "$fixture/tools/dsize/package.meta")
-changed "$test_directory/baseline/dsize" "$fixture/tools/dsize/package.meta" 'dsize source did not change its version'
-same "$test_directory/baseline/portwho" "$fixture/tools/portwho/package.meta" 'dsize edit changed portwho'
+new_sample_version=$(sed -n '1p' "$fixture/tools/sample/package.meta")
+changed "$test_directory/baseline/sample" "$fixture/tools/sample/package.meta" 'sample source did not change its version'
+same "$test_directory/baseline/second" "$fixture/tools/second/package.meta" 'sample edit changed second'
 run_source 0 upgrade
 list_installed
-assert_list_version dsize "$dsize_version" "$new_dsize_version"
-assert_list_version portwho "$portwho_version" "$portwho_version"
+assert_list_version sample "$sample_version" "$new_sample_version"
+assert_list_version second "$second_version" "$second_version"
 
 # Preserve old package-wide records honestly until that tool is updated.
 legacy_version=0.1.0-dev+1505faa1813c
-awk -F '\t' -v OFS='\t' -v version="$legacy_version" '$1 == "dsize.zsh" {$2=version} {print}' \
+awk -F '\t' -v OFS='\t' -v version="$legacy_version" '$1 == "sample.zsh" {$2=version} {print}' \
   "$install_directory/tools/installed.list" > "$test_directory/legacy-state"
 cp "$test_directory/legacy-state" "$install_directory/tools/installed.list"
 run_source 0 upgrade
 same "$test_directory/legacy-state" "$install_directory/tools/installed.list" 'upgrade rewrote a legacy installed version'
 list_installed
-assert_list_version dsize "$legacy_version" "$new_dsize_version"
-run_source 0 update dsize
+assert_list_version sample "$legacy_version" "$new_sample_version"
+run_source 0 update sample
 list_installed
-assert_list_version dsize "$new_dsize_version" "$new_dsize_version"
+assert_list_version sample "$new_sample_version" "$new_sample_version"
 env HOME="$test_home" XDG_CONFIG_HOME= ZDOTDIR= MST_LANG=en zsh -f -c \
-  'source "$HOME/.zshrc"; dsize --version' > "$test_directory/out"
-grep -Fq "dsize $new_dsize_version (" "$test_directory/out" || fail 'loaded version differs from list'
+  'source "$HOME/.zshrc"; sample --version' > "$test_directory/out"
+grep -Fq "sample $new_sample_version (" "$test_directory/out" || fail 'loaded version differs from list'
 
 # Shared runtime updates affect every tool that ships that runtime.
-for tool in dsize portwho extract npmg; do cp "$fixture/tools/$tool/package.meta" "$test_directory/baseline/$tool"; done
+for tool in sample second third dependent; do cp "$fixture/tools/$tool/package.meta" "$test_directory/baseline/$tool"; done
 printf '\n# shared language runtime change\n' >> "$fixture/lib/i18n.sh"
 build
-for tool in dsize portwho extract npmg; do
+for tool in sample second third dependent; do
   changed "$test_directory/baseline/$tool" "$fixture/tools/$tool/package.meta" 'shared runtime did not change dependent tool version'
 done
 
@@ -122,29 +122,29 @@ git -C "$fixture" add .
 git -C "$fixture" -c user.name=MST-Test -c user.email=mst@example.invalid -c commit.gpgsign=false \
   -c core.hooksPath=/dev/null commit -qm 'Component sources'
 build --refresh-revision
-cp "$fixture/tools/portwho/package.meta" "$test_directory/clean-portwho"
-grep -Fxq clean "$test_directory/clean-portwho" || fail 'component source not marked clean'
+cp "$fixture/tools/second/package.meta" "$test_directory/clean-second"
+grep -Fxq clean "$test_directory/clean-second" || fail 'component source not marked clean'
 printf '\n# later manager release\n' >> "$fixture/lib/mst.zsh"
 build --refresh-revision
-same "$test_directory/clean-portwho" "$fixture/tools/portwho/package.meta" 'manager publication rewrote clean tool provenance'
+same "$test_directory/clean-second" "$fixture/tools/second/package.meta" 'manager publication rewrote clean tool provenance'
 build --check
 
 # Generated metadata is required and parsed as data before installation writes.
-cp "$fixture/tools/portwho/package.meta" "$test_directory/valid-metadata"
+cp "$fixture/tools/second/package.meta" "$test_directory/valid-metadata"
 for invalid in missing malformed linked; do
   case $invalid in
-    missing) rm "$fixture/tools/portwho/package.meta" ;;
-    malformed) printf 'touch %s/executed\n' "$test_home" > "$fixture/tools/portwho/package.meta" ;;
+    missing) rm "$fixture/tools/second/package.meta" ;;
+    malformed) printf 'touch %s/executed\n' "$test_home" > "$fixture/tools/second/package.meta" ;;
     linked)
-      rm "$fixture/tools/portwho/package.meta"
-      ln -s "$test_directory/valid-metadata" "$fixture/tools/portwho/package.meta" ;;
+      rm "$fixture/tools/second/package.meta"
+      ln -s "$test_directory/valid-metadata" "$fixture/tools/second/package.meta" ;;
   esac
-  run_source 1 install portwho
+  run_source 1 install second
   [ ! -e "$test_home/executed" ] || fail 'metadata executed'
-  rm -f "$fixture/tools/portwho/package.meta"
-  cp "$test_directory/valid-metadata" "$fixture/tools/portwho/package.meta"
+  rm -f "$fixture/tools/second/package.meta"
+  cp "$test_directory/valid-metadata" "$fixture/tools/second/package.meta"
 done
-printf 'broken\n' > "$fixture/tools/portwho/package.meta"
+printf 'broken\n' > "$fixture/tools/second/package.meta"
 if build --check > "$test_directory/out" 2> "$test_directory/err"; then fail 'stale component metadata accepted'; fi
-cp "$test_directory/valid-metadata" "$fixture/tools/portwho/package.meta"
+cp "$test_directory/valid-metadata" "$fixture/tools/second/package.meta"
 printf 'PASS tool versions: %s independent release, upgrade, legacy and metadata checks.\n' "$checks"

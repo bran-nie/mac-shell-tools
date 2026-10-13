@@ -10,11 +10,11 @@ checks=0
 fixture="$test_directory/release"
 copy_package "$project_dir" "$fixture"
 mkdir -p "$test_directory/mock" "$test_directory/tmp"
-printf '%s\n' dsize.zsh other.zsh > "$fixture/scripts/tools.list"
+printf '%s\n' sample.zsh other.zsh > "$fixture/scripts/tools.list"
 mkdir -p "$fixture/tools/other"
 printf '%s\n' 0.1.0-dev > "$fixture/tools/other/VERSION"
 printf '%s\n' 'other() { print -r -- other-ready; }' > "$fixture/tools/other/other.zsh"
-printf '\n# release two\n' >> "$fixture/tools/dsize/dsize.zsh"
+printf '\n# release two\n' >> "$fixture/tools/sample/sample.zsh"
 printf '\n# manager release two\n' >> "$fixture/lib/mst.zsh"
 sh "$fixture/scripts/build-installer.sh" > "$test_directory/build"
 
@@ -71,7 +71,7 @@ run_mst() {
 assert_functions() {
   env HOME="$test_home" /bin/zsh -f -c '
     source "$1"
-    (( $+functions[mst] && $+functions[dsize] == $2 && $+functions[other] == $3 ))
+    (( $+functions[mst] && $+functions[sample] == $2 && $+functions[other] == $3 ))
   ' -- "$zshrc" "$1" "$2" || fail '管理器或工具加载状态错误'
 }
 
@@ -85,7 +85,7 @@ backup_count() {
 
 managed_identity() {
   for file in "$manager_directory/manager-core.sh" "$manager_directory/mst.sh" "$manager_directory/mst.zsh" \
-      "$install_directory/init.zsh" "$zshrc" "$install_directory/tools/dsize/dsize.zsh" "$install_directory/tools/installed.list"; do
+      "$install_directory/init.zsh" "$zshrc" "$install_directory/tools/sample/sample.zsh" "$install_directory/tools/installed.list"; do
     if [ -f "$file" ]; then file_stat "$file"; cksum "$file"; fi
   done
 }
@@ -93,7 +93,7 @@ managed_identity() {
 new_home initial
 run_bootstrap 0
 assert_functions 0 0
-[ ! -e "$install_directory/tools/dsize/dsize.zsh" ] && [ ! -e "$install_directory/tools/installed.list" ] ||
+[ ! -e "$install_directory/tools/sample/sample.zsh" ] && [ ! -e "$install_directory/tools/installed.list" ] ||
   fail '默认引导安装了具体工具'
 identity=$(managed_identity)
 run_bootstrap 0 --unattended
@@ -101,9 +101,9 @@ run_bootstrap 0 --unattended
 run_mst 0
 grep -Fq 'Usage: mst' "$test_directory/out" || fail 'mst 无参数未显示帮助'
 run_mst 0 list
-grep -Eq '^dsize[[:space:]]+not installed[[:space:]]+' "$test_directory/out" || fail '初始工具列表错误'
+grep -Eq '^sample[[:space:]]+not installed[[:space:]]+' "$test_directory/out" || fail '初始工具列表错误'
 run_mst 0 update
-run_mst 2 upgrade dsize
+run_mst 2 upgrade sample
 run_mst 2 upgrade --all
 [ "$(download_count)" -eq 0 ] || fail '本地查询或无效参数触发联网'
 
@@ -113,50 +113,50 @@ assert_functions 0 0
 [ ! -e "$install_directory/tools/installed.list" ] || fail '纯管理器升级修改工具清单'
 run_mst 0 list
 grep -Eq '^other[[:space:]]+not installed[[:space:]]+' "$test_directory/out" || fail '升级未发现新工具'
-run_mst 0 install dsize
+run_mst 0 install sample
 assert_functions 1 0
-tool_matches "$fixture" dsize "$install_directory/tools/dsize/dsize.zsh" || fail '在线安装未使用新版本'
+tool_matches "$fixture" sample "$install_directory/tools/sample/sample.zsh" || fail '在线安装未使用新版本'
 manager_identity=$(file_stat "$manager_directory/mst.zsh")
 state_identity=$(file_stat "$install_directory/tools/installed.list")
 
 # update 下载最新工具，但不会隐式升级管理器或安装新工具。
-printf '\n# release three\n' >> "$fixture/tools/dsize/dsize.zsh"
+printf '\n# release three\n' >> "$fixture/tools/sample/sample.zsh"
 printf '\n# manager release three\n' >> "$fixture/lib/mst.zsh"
 sh "$fixture/scripts/build-installer.sh" > "$test_directory/build"
 run_mst 0 update
-tool_matches "$fixture" dsize "$install_directory/tools/dsize/dsize.zsh" || fail 'update 未获取最新工具'
+tool_matches "$fixture" sample "$install_directory/tools/sample/sample.zsh" || fail 'update 未获取最新工具'
 [ "$(file_stat "$manager_directory/mst.zsh")" = "$manager_identity" ] || fail 'update 隐式升级管理器'
 [ "$(file_stat "$install_directory/tools/installed.list")" != "$state_identity" ] || fail 'update 未记录新的工具版本'
 state_identity=$(file_stat "$install_directory/tools/installed.list")
 [ ! -e "$install_directory/tools/other/other.zsh" ] || fail 'update 安装新工具'
-tool_identity=$(file_stat "$install_directory/tools/dsize/dsize.zsh")
+tool_identity=$(file_stat "$install_directory/tools/sample/sample.zsh")
 run_mst 0 upgrade --no-run-zsh
 [ "$(file_stat "$manager_directory/mst.zsh")" != "$manager_identity" ] || fail 'upgrade 未升级管理器'
-[ "$(file_stat "$install_directory/tools/dsize/dsize.zsh")" = "$tool_identity" ] || fail 'upgrade 修改已安装工具'
+[ "$(file_stat "$install_directory/tools/sample/sample.zsh")" = "$tool_identity" ] || fail 'upgrade 修改已安装工具'
 [ "$(file_stat "$install_directory/tools/installed.list")" = "$state_identity" ] || fail 'upgrade 修改已安装清单'
 run_mst 0 upgrade
-[ "$(file_stat "$install_directory/tools/dsize/dsize.zsh")" = "$tool_identity" ] || fail '重复 upgrade 修改工具'
+[ "$(file_stat "$install_directory/tools/sample/sample.zsh")" = "$tool_identity" ] || fail '重复 upgrade 修改工具'
 
-printf '\n# keep my existing dsize\n' >> "$install_directory/tools/dsize/dsize.zsh"
-cp "$install_directory/tools/dsize/dsize.zsh" "$test_directory/kept-dsize"
+printf '\n# keep my existing sample\n' >> "$install_directory/tools/sample/sample.zsh"
+cp "$install_directory/tools/sample/sample.zsh" "$test_directory/kept-sample"
 run_mst 0 install other
 assert_functions 1 1
-cmp -s "$install_directory/tools/dsize/dsize.zsh" "$test_directory/kept-dsize" || fail '选择安装更新无关工具'
+cmp -s "$install_directory/tools/sample/sample.zsh" "$test_directory/kept-sample" || fail '选择安装更新无关工具'
 
 # 查询及卸载完全离线；卸载全部工具后 mst 仍可使用、更新及重新安装。
 downloads=$(download_count)
 download_mode=fail
 run_mst 0 list
-run_mst 0 uninstall dsize
+run_mst 0 uninstall sample
 assert_functions 0 1
-run_mst 2 update dsize
+run_mst 2 update sample
 run_mst 0 uninstall --all
 assert_functions 0 0
 run_mst 0 list
 [ "$(download_count)" -eq "$downloads" ] || fail '离线命令触发联网'
 download_mode=ok
 run_mst 0 upgrade
-run_mst 0 install dsize
+run_mst 0 install sample
 assert_functions 1 0
 
 # 下载失败、空文件、HTML、语法错误和其他脚本都在写配置前被拒绝。

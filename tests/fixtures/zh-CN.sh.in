@@ -1,0 +1,7 @@
+mst_text_zh_CN() {
+  case $1 in
+    help) printf '%s\n' '用法：@TOOL@ [--help|--version]' ;;
+    error.option) printf '%s\n' '未知选项' ;;
+    *) return 1 ;;
+  esac
+}

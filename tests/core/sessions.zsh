@@ -10,6 +10,7 @@ zmodload zsh/zpty || exit 1
 zmodload zsh/zselect || exit 1
 checks=0
 session_started=0
+terminal_transcript=
 run_zsh_value=yes
 # zpty 为 builtin；先建立 export 属性，再用调用作用域传递各用例的值。
 export RUNZSH=yes ZDOTDIR= XDG_CONFIG_HOME=
@@ -21,7 +22,7 @@ mkdir "$test_directory/mock"
 # 在线命令只读本地构建的发布包，避免终端测试访问网络。
 fixture="$test_directory/release"
 copy_package "$project_directory" "$fixture"
-printf '\n# terminal release two\n' >> "$fixture/tools/dsize/dsize.zsh"
+printf '\n# terminal release two\n' >> "$fixture/tools/sample/sample.zsh"
 printf '\n# terminal manager release two\n' >> "$fixture/lib/mst.zsh"
 sh "$fixture/scripts/build-installer.sh" > "$test_directory/build-log" || exit 1
 export MST_RELEASE="$fixture/install.sh"
@@ -47,6 +48,9 @@ chmod +x "$test_directory/mock/zsh" "$test_directory/mock/curl"
 cleanup() {
   if (( session_started )); then zpty -d mst-session 2>/dev/null; fi
   zselect -t 5
+  if [[ -n ${MST_TEST_ARTIFACT_DIR:-} ]]; then
+    print -rn -- "$terminal_transcript" > "$MST_TEST_ARTIFACT_DIR/terminal.log"
+  fi
   rm -rf "$test_directory"
 }
 trap cleanup EXIT
@@ -69,8 +73,8 @@ unsetopt beep promptcr promptsp
 unset HISTFILE
 SAVEHIST=0
 precmd() {
-  print -r -- "__MST_SHELL__${+functions[dsize]}__MST_MANAGER__${+functions[mst]}__"
-  print -r -- "__MST_COMPLETION__${+functions[compdef]}__MST_TOOL_COMPLETION__${_comps[dsize]-none}__"
+  print -r -- "__MST_SHELL__${+functions[sample]}__MST_MANAGER__${+functions[mst]}__"
+  print -r -- "__MST_COMPLETION__${+functions[compdef]}__MST_TOOL_COMPLETION__${_comps[sample]-none}__"
 }
 RC
 }
@@ -89,7 +93,7 @@ start_command() {
 
 drain_output() {
   local chunk
-  while zpty -r mst-session chunk 2>/dev/null; do terminal_output+=$chunk; done
+  while zpty -r mst-session chunk 2>/dev/null; do terminal_output+=$chunk; terminal_transcript+=$chunk; done
 }
 
 read_until() {
@@ -115,7 +119,7 @@ expect_login() {
   read_until "__MST_SHELL__${expected_function}__"
   read_until '__MST_MANAGER__1__'
   read_until '__MST_COMPLETION__1__'
-  if (( expected_function )); then read_until '__MST_TOOL_COMPLETION___dsize__'; fi
+  if (( expected_function )); then read_until '__MST_TOOL_COMPLETION___sample__'; fi
   read_until __MST_PROMPT__
   [[ -f "$MST_EXEC_LOG" ]] || fail '未调用新的登录 Zsh'
   (( checks++ ))
@@ -142,17 +146,17 @@ login_count() {
 new_home manager-first
 start_command /bin/sh "$MST_INSTALLER"
 expect_login 0
-[[ ! -e "$test_home/.config/zsh/mac-shell-tools/tools/dsize/dsize.zsh" ]] || fail '首次安装启用了工具'
+[[ ! -e "$test_home/.config/zsh/mac-shell-tools/tools/sample/sample.zsh" ]] || fail '首次安装启用了工具'
 zpty -w mst-session 'mst list; print -r -- __MST_LIST_""OK__'
 read_until __MST_LIST_OK__
 [[ $terminal_output == *'not installed'* ]] || fail '首次会话无法查询工具'
 close_session
 online_command='source "$HOME/.zshrc"; export ZDOTDIR="$HOME/unused-zdot"; cd /; mst "$@"'
-start_command /bin/zsh -f -c "$online_command" -- install dsize
+start_command /bin/zsh -f -c "$online_command" -- install sample
 expect_login 1
 [[ ! -e "$test_home/unused-zdot" ]] || fail '在线安装使用了变化后的 ZDOTDIR'
 close_session
-printf '\n# outdated installed tool\n' >> "$test_home/.config/zsh/mac-shell-tools/tools/dsize/dsize.zsh"
+printf '\n# outdated installed tool\n' >> "$test_home/.config/zsh/mac-shell-tools/tools/sample/sample.zsh"
 start_command /bin/zsh -f -c "$online_command" -- update
 expect_login 1
 close_session
@@ -166,11 +170,11 @@ start_command /bin/zsh -f -c "$online_command" -- upgrade
 expect_exit_without_login "$previous"
 
 new_home automatic
-start_command /bin/sh "$MST_INSTALLER" install dsize
+start_command /bin/sh "$MST_INSTALLER" install sample
 expect_login 1
-zpty -w mst-session 'dsize --help; print -r -- __MST_COMMAND_""OK__'
+zpty -w mst-session 'sample --help; print -r -- __MST_COMMAND_""OK__'
 read_until __MST_COMMAND_OK__
-[[ $terminal_output == *'--depth'* ]] || fail '新会话中 dsize 不可用'
+[[ $terminal_output == *'--help'* ]] || fail '新会话中 sample 不可用'
 close_session
 
 # An already initialized completion system (Oh My Zsh or a manual setup) must
@@ -182,10 +186,10 @@ compinit
 compdef _files personal-command
 compinit() { print -r -- __MST_UNEXPECTED_COMPINIT__; return 1; }
 RC
-start_command /bin/sh "$MST_INSTALLER" install dsize
+start_command /bin/sh "$MST_INSTALLER" install sample
 expect_login 1
 [[ $terminal_output != *__MST_UNEXPECTED_COMPINIT__* ]] || fail '重复初始化已有补全系统'
-zpty -w mst-session 'source "$HOME/.config/zsh/mac-shell-tools/init.zsh"; [[ ${_comps[personal-command]-} == _files && ${_comps[dsize]-} == _dsize && ${_comps[mst]-} == _mst ]] && print -r -- __MST_REUSE_""OK__'
+zpty -w mst-session 'source "$HOME/.config/zsh/mac-shell-tools/init.zsh"; [[ ${_comps[personal-command]-} == _files && ${_comps[sample]-} == _sample && ${_comps[mst]-} == _mst ]] && print -r -- __MST_REUSE_""OK__'
 read_until __MST_REUSE_OK__
 [[ $terminal_output != *__MST_UNEXPECTED_COMPINIT__* ]] || fail '重复 source 重新运行 compinit'
 (( checks++ ))
@@ -193,10 +197,10 @@ close_session
 
 # 相同内容、查询、帮助及失败均不得开启额外会话。
 new_home automatic
-start_command /bin/sh "$MST_INSTALLER" install dsize
+start_command /bin/sh "$MST_INSTALLER" install sample
 expect_login 1
 close_session
-for arguments in 'install dsize' list --help 'install missing'; do
+for arguments in 'install sample' list --help 'install missing'; do
   previous=$(login_count)
   start_command /bin/sh "$MST_INSTALLER" ${=arguments}
   expected_exit=0
@@ -209,37 +213,37 @@ expect_exit_without_login "$previous"
 previous=$(login_count)
 start_command /bin/zsh -f -c "$online_command" -- config language en
 expect_exit_without_login "$previous"
-printf '\n# stale revision\n' >> "$test_home/.config/zsh/mac-shell-tools/tools/dsize/dsize.zsh"
+printf '\n# stale revision\n' >> "$test_home/.config/zsh/mac-shell-tools/tools/sample/sample.zsh"
 start_command /bin/sh "$MST_INSTALLER" update
 expect_login 1
 close_session
-start_command /bin/sh "$MST_INSTALLER" uninstall dsize
+start_command /bin/sh "$MST_INSTALLER" uninstall sample
 expect_login 0
 close_session
 
 for flag in --no-run-zsh --unattended; do
   new_home "$flag"
   previous=$(login_count)
-  start_command /bin/sh "$MST_INSTALLER" install dsize "$flag"
+  start_command /bin/sh "$MST_INSTALLER" install sample "$flag"
   expect_exit_without_login "$previous"
   [[ $terminal_output == *'source '* ]] || fail "$flag 缺少启用说明"
 done
 new_home environment-disabled
 run_zsh_value=no
 previous=$(login_count)
-start_command /bin/sh "$MST_INSTALLER" install dsize
+start_command /bin/sh "$MST_INSTALLER" install sample
 expect_exit_without_login "$previous"
 run_zsh_value=yes
 
 new_home piped-input
 previous=$(login_count)
-start_command /bin/sh -c 'cat "$MST_INSTALLER" | /bin/sh -s -- install dsize'
+start_command /bin/sh -c 'cat "$MST_INSTALLER" | /bin/sh -s -- install sample'
 expect_exit_without_login "$previous"
 [[ $terminal_output == *'source '* ]] || fail '管道安装缺少启用说明'
 
 new_home redirected-output
 previous=$(login_count)
-start_command /bin/sh -c '/bin/sh "$MST_INSTALLER" install dsize > "$MST_REDIRECT_LOG"'
+start_command /bin/sh -c '/bin/sh "$MST_INSTALLER" install sample > "$MST_REDIRECT_LOG"'
 expect_exit_without_login "$previous"
 [[ $(<"$MST_REDIRECT_LOG") == *'source '* ]] || fail '输出重定向缺少启用说明'
 

@@ -37,7 +37,7 @@ assert_no_install() {
 run 1 install npmg
 grep -Fq 'npmg requires command node' "$test_directory/err" || fail 'missing Node diagnostic'
 assert_no_install
-run 1 install dsize npmg
+run 1 install sample npmg
 assert_no_install
 run 1 install --all
 assert_no_install

@@ -17,8 +17,8 @@ read_base_version() {
   cat "$1"
 }
 base_version=$(read_base_version "$project_dir/VERSION")
-source_files='VERSION LICENSE lib/i18n.sh lib/mst.zsh lib/manager.sh lib/repository.sh locales/en.sh locales/zh-CN.sh tools/init.zsh scripts/tools.list scripts/build-installer.sh scripts/bootstrap.sh.in'
-generated_files='install.sh package.meta'
+source_files='VERSION LICENSE lib/i18n.sh lib/mst.zsh lib/manager.sh lib/repository.sh locales/en.sh locales/zh-CN.sh tools/init.zsh scripts/tools.list scripts/build-installer.sh scripts/bootstrap.sh.in scripts/loader.zsh.in'
+generated_files='install.sh package.meta tools/init.zsh'
 seen_files=' init.zsh mst.zsh '
 for tool_file in $(cat "$script_dir/tools.list"); do
   case $tool_file in *.zsh) ;; *) printf 'Expected .zsh: %s\n' "$tool_file" >&2; exit 1 ;; esac
@@ -45,6 +45,20 @@ for tool_file in $(cat "$script_dir/tools.list"); do
   printf '%s\n' "$tool_sources" > "$build_directory/$tool_name.sources"
   generated_files="$generated_files tools/$tool_name/package.meta"
 done
+# Only catalog entries become executable registrations; never glob/source files.
+mkdir -p "$build_directory/tools"
+for tool_file in $(cat "$script_dir/tools.list"); do
+  tool_name=${tool_file%.zsh}
+  printf '  if [[ -f "$mac_shell_tools_directory/tools/%s/%s" ]]; then\n' "$tool_name" "$tool_file"
+  printf '    source "$mac_shell_tools_directory/tools/%s/%s"\n' "$tool_name" "$tool_file"
+  printf '  elif [[ -f "$mac_shell_tools_directory/%s/%s" ]]; then\n' "$tool_name" "$tool_file"
+  printf '    source "$mac_shell_tools_directory/%s/%s"\n' "$tool_name" "$tool_file"
+  printf '  fi\n'
+done > "$build_directory/registrations"
+awk -v registrations="$build_directory/registrations" '
+  $0 == "@MST_REGISTRATIONS@" {while ((getline line < registrations) > 0) print line; close(registrations); next}
+  {print}
+' "$script_dir/loader.zsh.in" > "$build_directory/tools/init.zsh"
 if command -v sha256sum >/dev/null 2>&1; then
   sha256() { sha256sum "$@"; }
 elif command -v shasum >/dev/null 2>&1; then
@@ -52,10 +66,26 @@ elif command -v shasum >/dev/null 2>&1; then
 else
   printf '%s\n' 'Building requires sha256sum or shasum.' >&2; exit 1
 fi
-source_digest=$(
+# Hash each unique source once in this build, in one process. The generated
+# loader is hashed from staging, so --check also catches stale registrations.
+hash_files=
+for source_file in $source_files; do
+  case $source_file in tools/init.zsh) ;; *) hash_files="$hash_files $source_file" ;; esac
+done
+(
   CDPATH= cd -P "$project_dir"
-  for source_file in $source_files; do sha256 "$source_file"; done | sha256 | awk '{print $1}'
-)
+  sha256 $hash_files
+) > "$build_directory/hashes"
+loader_digest=$(sha256 < "$build_directory/tools/init.zsh" | awk '{print $1}')
+printf '%s  tools/init.zsh\n' "$loader_digest" >> "$build_directory/hashes"
+digest_sources() {
+  # Keep the historical ordering and "digest  relative/path" format, including
+  # repeated entries if any; batching must not change existing tool versions.
+  printf '%s\n' "$1" | tr ' ' '\n' > "$build_directory/digest-inputs"
+  awk 'NR == FNR {hash[$2]=$0; next} {print hash[$0]}' \
+    "$build_directory/hashes" "$build_directory/digest-inputs" | sha256 | awk '{print $1}'
+}
+source_digest=$(digest_sources "$source_files")
 source_revision=unknown
 source_state=unknown
 saved_digest=
@@ -82,10 +112,7 @@ for tool_file in $(cat "$script_dir/tools.list"); do
   tool_name=${tool_file%.zsh}
   tool_sources=$(cat "$build_directory/$tool_name.sources")
   tool_base_version=$(read_base_version "$project_dir/tools/$tool_name/VERSION")
-  tool_digest=$(
-    CDPATH= cd -P "$project_dir"
-    for tool_source in $tool_sources; do sha256 "$tool_source"; done | sha256 | awk '{print $1}'
-  )
+  tool_digest=$(digest_sources "$tool_sources")
   tool_metadata="$project_dir/tools/$tool_name/package.meta"
   [ ! -L "$tool_metadata" ] || { printf 'Linked metadata: %s\n' "$tool_metadata" >&2; exit 1; }
   tool_revision=unknown

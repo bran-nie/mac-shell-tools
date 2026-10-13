@@ -1,0 +1,13 @@
+# Real Tab cases, sourced by tests/helpers/completion.zsh.
+expect_completion 管理器配置 'mst conf' 'mst config '
+expect_completion 管理器语言配置 'mst config lan' 'mst config language '
+expect_completion 管理器语言列表 'mst config language li' 'mst config language list '
+expect_completion 管理器英文设置 'mst config language e' 'mst config language en '
+expect_completion 管理器中文设置 'mst config language zh' 'mst config language zh-CN '
+expect_completion 管理器单次语言 'mst --lang zh' 'mst --lang zh-CN '
+expect_completion 管理器等号语言 'mst --lang=zh' 'mst --lang=zh-CN '
+expect_completion 管理器前置语言 'mst --lang en config language li' 'mst --lang en config language list '
+expect_completion 管理器中间语言 'mst config --lang en language li' 'mst config --lang en language list '
+expect_completion 管理器列表无额外参数 'mst config language list en' 'mst config language list en'
+expect_completion 管理器无效配置 'mst config unknown li' 'mst config unknown li'
+expect_completion 工具参数不补语言 'mst install language zh' 'mst install language zh'

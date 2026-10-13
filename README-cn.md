@@ -110,7 +110,7 @@ sh scripts/build-installer.sh
 sh scripts/check.sh
 ```
 
-检查使用临时 HOME、配置目录和模拟下载，包括伪终端中的真实 Tab 补全及登录会话验证。同一套检查可在 macOS 和 Linux 上运行，当前 CI 运行 macOS。详见[维护说明](docs/development.md)。
+检查使用临时 HOME、配置目录和模拟下载，包括伪终端中的真实 Tab 补全及登录会话验证。PR/main 按变更范围在 macOS 上运行，手动、发布及每周全量检查同时覆盖 macOS 和 Ubuntu；可用 `sh scripts/check.sh --tool npmg` 验证单个工具，报告保存在 `.artifacts/`。详见[维护说明](docs/development.md)。
 
 ## 许可证
 

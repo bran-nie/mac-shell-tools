@@ -30,9 +30,9 @@ new_legacy() {
   install_directory="$config_home/zsh/mac-shell-tools"
   zshrc="$zdot_home/.zshrc"
   mkdir -p "$legacy_directory/.mac-shell-tools" "$zdot_home"
-  printf 'dsize() { print -r -- legacy-dsize; }\n' > "$legacy_directory/dsize.zsh"
+  printf 'sample() { print -r -- legacy-sample; }\n' > "$legacy_directory/sample.zsh"
   printf 'other() { print -r -- legacy-other; }\n' > "$legacy_directory/other.zsh"
-  printf '%s\n' dsize.zsh other.zsh > "$legacy_directory/.mac-shell-tools-installed"
+  printf '%s\n' sample.zsh other.zsh > "$legacy_directory/.mac-shell-tools-installed"
   printf '# unregistered personal tool\n' > "$legacy_directory/personal.zsh"
   printf 'export LEGACY_PERSONAL=kept\n' > "$legacy_directory/personal-settings.zsh"
   printf '# original backup\n' > "$legacy_directory/init.zsh.bak.original"
@@ -68,8 +68,8 @@ CORE
   emulate -L zsh
   local mac_shell_tools_directory=${${(%):-%x}:A:h}
   source "$mac_shell_tools_directory/.mac-shell-tools/mst.zsh"
-  if [[ -f "$mac_shell_tools_directory/dsize.zsh" ]]; then
-    source "$mac_shell_tools_directory/dsize.zsh"
+  if [[ -f "$mac_shell_tools_directory/sample.zsh" ]]; then
+    source "$mac_shell_tools_directory/sample.zsh"
   fi
   if [[ -f "$mac_shell_tools_directory/other.zsh" ]]; then
     source "$mac_shell_tools_directory/other.zsh"
@@ -108,16 +108,16 @@ run_bootstrap() {
 
 assert_migrated() {
   [ -f "$install_directory/manager/migration-complete" ] || fail 'migration completion missing'
-  cmp -s "$legacy_directory/dsize.zsh" "$install_directory/tools/dsize/dsize.zsh" || fail 'legacy tool content changed'
+  cmp -s "$legacy_directory/sample.zsh" "$install_directory/tools/sample/sample.zsh" || fail 'legacy tool content changed'
   cmp -s "$legacy_directory/other.zsh" "$install_directory/tools/other/other.zsh" || fail 'unavailable tool lost'
-  [ "$(awk -F '\t' '$1 == "dsize.zsh" {print $2}' "$install_directory/tools/installed.list")" = unknown ] || fail 'legacy tool given false version'
-  [ "$(cat "$install_directory/tools/dsize/version")" = "$(printf 'unknown\nunknown\nunknown')" ] || fail 'legacy component version'
+  [ "$(awk -F '\t' '$1 == "sample.zsh" {print $2}' "$install_directory/tools/installed.list")" = unknown ] || fail 'legacy tool given false version'
+  [ "$(cat "$install_directory/tools/sample/version")" = "$(printf 'unknown\nunknown\nunknown')" ] || fail 'legacy component version'
   [ -f "$legacy_directory/personal.zsh" ] && [ -f "$legacy_directory/init.zsh.bak.original" ] || fail 'personal files/backups lost'
   [ ! -e "$test_directory/unexpected-config" ] && [ ! -e "$test_directory/unexpected-zdot" ] || fail 'pinned paths ignored'
-  if grep -Fq 'source "$mac_shell_tools_directory/dsize.zsh"' "$legacy_directory/init.zsh"; then fail 'legacy block not retired'; fi
+  if grep -Fq 'source "$mac_shell_tools_directory/sample.zsh"' "$legacy_directory/init.zsh"; then fail 'legacy block not retired'; fi
   env HOME="$test_home" MST_LANG= /bin/zsh -f -c '
     source "$1"
-    [[ $LEGACY_PERSONAL == kept && $(dsize) == legacy-dsize && $(other) == legacy-other ]]
+    [[ $LEGACY_PERSONAL == kept && $(sample) == legacy-sample && $(other) == legacy-other ]]
     mst list >/dev/null
   ' -- "$zshrc" || fail 'personal relative content or functions unusable'
   set -- "$install_directory"/backups/legacy/init.zsh.bak.*
@@ -129,10 +129,10 @@ assert_migrated() {
 
 new_legacy normal
 run_legacy 0 upgrade --no-run-zsh
-grep -Eq '^dsize[[:space:]]+installed[[:space:]]+unknown' "$test_directory/out" || fail 'old loaded mst did not forward'
+grep -Eq '^sample[[:space:]]+installed[[:space:]]+unknown' "$test_directory/out" || fail 'old loaded mst did not forward'
 assert_migrated
-run_bootstrap 0 update dsize
-tool_matches "$project_dir" dsize "$install_directory/tools/dsize/dsize.zsh" || fail 'migrated tool update failed'
+run_bootstrap 0 update sample
+tool_matches "$project_dir" sample "$install_directory/tools/sample/sample.zsh" || fail 'migrated tool update failed'
 run_bootstrap 0 uninstall other
 [ ! -e "$install_directory/tools/other/other.zsh" ] && [ -f "$legacy_directory/other.zsh" ] || fail 'uninstalled wrong copy'
 cp -R "$install_directory/tools" "$test_directory/retained-tools"
@@ -147,7 +147,7 @@ assert_migrated
 cat > "$test_directory/mock/mv" <<'MOCK'
 #!/bin/sh
 for destination do :; done
-case $destination in */tools/dsize/version) printf 'simulated migration interruption\n' >&2; exit 1 ;; esac
+case $destination in */tools/sample/version) printf 'simulated migration interruption\n' >&2; exit 1 ;; esac
 exec /bin/mv "$@"
 MOCK
 chmod +x "$test_directory/mock/mv"
@@ -175,10 +175,10 @@ run_bootstrap 0 upgrade
 assert_migrated
 
 new_legacy conflict
-mkdir -p "$install_directory/tools/dsize"
-printf '# independent new file\n' > "$install_directory/tools/dsize/dsize.zsh"
+mkdir -p "$install_directory/tools/sample"
+printf '# independent new file\n' > "$install_directory/tools/sample/sample.zsh"
 run_legacy 1 upgrade --no-run-zsh
-[ "$(cat "$install_directory/tools/dsize/dsize.zsh")" = '# independent new file' ] || fail 'conflicting file overwritten'
+[ "$(cat "$install_directory/tools/sample/sample.zsh")" = '# independent new file' ] || fail 'conflicting file overwritten'
 [ ! -f "$install_directory/manager/manager-core.sh" ] || fail 'conflict wrote manager first'
 new_legacy legacy-linked-manager
 mv "$legacy_directory/.mac-shell-tools" "$legacy_directory/linked-manager"
@@ -191,7 +191,7 @@ run_legacy 1 upgrade --no-run-zsh
 [ -d "$legacy_directory/.mac-shell-tools-install.lock" ] || fail 'foreign legacy lock removed'
 [ ! -d "$install_directory/.mac-shell-tools-install.lock" ] || fail 'own new lock remained'
 new_legacy legacy-missing
-rm "$legacy_directory/dsize.zsh"
+rm "$legacy_directory/sample.zsh"
 run_legacy 1 upgrade --no-run-zsh
 [ ! -f "$install_directory/manager/manager-core.sh" ] || fail 'missing legacy tool wrote manager first'
 new_legacy legacy-manifest

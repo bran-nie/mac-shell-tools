@@ -1,17 +1,137 @@
-name: macOS checks
+name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
+  release:
+    types: [published]
+  schedule:
+    - cron: '17 3 * * 1'
 
 permissions:
   contents: read
+  actions: read
+
+# PRs supersede older attempts. Main runs finish so a successful baseline remains
+# available; the planner also includes all changes since that successful run.
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  check:
-    runs-on: macos-latest
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      has_jobs: ${{ steps.plan.outputs.has_jobs }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Check syntax, generated installer, and isolated behavior
-        run: sh scripts/check.sh
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Plan affected checks
+        id: plan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          args=(--event "$EVENT" --head "$GITHUB_SHA" --output .artifacts/plan.json)
+          if [ -n "$PR_BASE" ]; then args+=(--base "$PR_BASE"); fi
+          case "$EVENT" in
+            workflow_dispatch|schedule|release)
+              args+=(--platform macos-latest --platform ubuntu-latest) ;;
+          esac
+          python3 scripts/ci/plan.py "${args[@]}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ci-plan
+          path: .artifacts/plan.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
+  base:
+    needs: plan
+    runs-on: macos-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: ci-plan
+          path: .artifacts
+      - name: Syntax, generated files, catalogs, docs and CI contracts
+        run: sh scripts/check.sh --plan .artifacts/plan.json --target base
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: report-base
+          path: .artifacts/macos-latest-base
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
+  tests:
+    needs: [plan, base]
+    if: needs.plan.outputs.has_jobs == 'true'
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: ci-plan
+          path: .artifacts
+      - name: Install Linux test dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y zsh lsof zip unzip xz-utils
+      - name: Run selected suites
+        env:
+          TARGET: ${{ matrix.id }}
+          PLATFORM: ${{ matrix.platform }}
+        run: sh scripts/check.sh --plan .artifacts/plan.json --target "$TARGET" --platform "$PLATFORM"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: report-${{ matrix.platform }}-${{ matrix.id }}
+          path: .artifacts/${{ matrix.platform }}-${{ matrix.id }}
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
+  ci-result:
+    name: ci-result
+    needs: [plan, base, tests]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: ci-plan
+          path: .artifacts
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: report-*
+          path: .artifacts/reports
+      - name: Require complete successful coverage
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: python3 scripts/ci/result.py --plan .artifacts/plan.json --reports .artifacts/reports --needs "$NEEDS_JSON"

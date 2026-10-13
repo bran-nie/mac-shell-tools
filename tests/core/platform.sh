@@ -25,15 +25,15 @@ for platform in Darwin Linux FreeBSD MINGW64_NT; do
   mkdir -p "$test_home"
   if env HOME="$test_home" XDG_CONFIG_HOME= ZDOTDIR= MST_LANG= RUNZSH=no \
       TMPDIR="$test_directory/tmp" PATH="$test_directory/mock:$PATH" MST_TEST_PLATFORM="$platform" \
-      /bin/sh "$project_dir/install.sh" install dsize \
+      /bin/sh "$project_dir/install.sh" install sample \
       > "$test_directory/out" 2> "$test_directory/err"; then actual=0; else actual=$?; fi
   case $platform in
     Darwin|Linux)
       [ "$actual" -eq 0 ] || fail "$platform rejected"
       env HOME="$test_home" ZDOTDIR= MST_LANG= /bin/zsh -f -c '
         source "$HOME/.zshrc"
-        (( $+functions[mst] && $+functions[dsize] )) || exit 1
-        dsize --help >/dev/null
+        (( $+functions[mst] && $+functions[sample] )) || exit 1
+        sample --help >/dev/null
       ' || fail "$platform installation unusable"
       ;;
     FreeBSD|MINGW64_NT)
@@ -50,11 +50,11 @@ done
 test_home="$test_directory/bash/home"
 mkdir -p "$test_home"
 env HOME="$test_home" XDG_CONFIG_HOME= ZDOTDIR= MST_LANG= RUNZSH=no SHELL=/bin/bash \
-  TMPDIR="$test_directory/tmp" /bin/bash "$project_dir/install.sh" install dsize \
+  TMPDIR="$test_directory/tmp" /bin/bash "$project_dir/install.sh" install sample \
   > "$test_directory/out" 2> "$test_directory/err" || fail 'bootstrap launched from Bash failed'
 env HOME="$test_home" /bin/bash --noprofile --norc -c '
   source "$HOME/.zshrc"
-  if declare -F mst >/dev/null || declare -F dsize >/dev/null; then exit 1; fi
+  if declare -F mst >/dev/null || declare -F sample >/dev/null; then exit 1; fi
   source "$1/tools/init.zsh"
 ' -- "$project_dir" > "$test_directory/out" 2> "$test_directory/err" || fail 'Zsh loader ran in Bash'
 [ ! -s "$test_directory/out" ] && [ ! -s "$test_directory/err" ] || fail 'Bash load produced output'
@@ -63,8 +63,8 @@ checks=$((checks + 1))
 # Non-interactive uses load functions without initializing the completion system.
 env HOME="$test_home" ZDOTDIR= MST_LANG= /bin/zsh -f -c '
   source "$HOME/.zshrc"
-  (( $+functions[mst] && $+functions[dsize] && ! $+functions[compdef] )) || exit 1
-  dsize --help >/dev/null
+  (( $+functions[mst] && $+functions[sample] && ! $+functions[compdef] )) || exit 1
+  sample --help >/dev/null
 ' > "$test_directory/out" 2> "$test_directory/err" || fail 'non-interactive load changed completion'
 [ ! -e "$test_home/.zcompdump" ] || fail 'non-interactive load created completion cache'
 checks=$((checks + 1))

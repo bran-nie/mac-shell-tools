@@ -1,0 +1,7 @@
+mst_text_en() {
+  case $1 in
+    help) printf '%s\n' 'Usage: @TOOL@ [--help|--version]' ;;
+    error.option) printf '%s\n' 'Unknown option' ;;
+    *) return 1 ;;
+  esac
+}

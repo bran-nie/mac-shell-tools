@@ -1,0 +1,20 @@
+# Synthetic component for manager contracts; independent of real tool behavior.
+@TOOL@() {
+  emulate -L zsh
+  local component=${${(%):-%x}:A:h}
+  local common="$component/i18n.sh" language
+  if [[ ! -f $common ]]; then common="$component/../../lib/i18n.sh"; fi
+  source "$common" || return 1
+  language=$(mst_resolve_language "$component/../../config.conf" "${MST_LANG:-}") || return 2
+  source "$component/locales/en.sh" || return 1
+  if [[ -f "$component/locales/zh-CN.sh" ]]; then source "$component/locales/zh-CN.sh"; fi
+  case ${1:-} in
+    --version)
+      print -r -- '@TOOL@ @MST_VERSION@ (@MST_REVISION@; @MST_STATE@)' ;;
+    --help) mst_print_message "$language" help ;;
+    --invalid) mst_print_message "$language" error.option >&2; return 2 ;;
+    *) print -r -- fixture-data ;;
+  esac
+}
+_@TOOL@() { _arguments '--help[Fixture help]' '--version[Fixture version]'; }
+if (( $+functions[compdef] )); then compdef _@TOOL@ @TOOL@; fi

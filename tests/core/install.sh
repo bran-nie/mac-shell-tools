@@ -42,8 +42,8 @@ run_install() {
 # 安装后在干净 Zsh 中加载配置，检测引用转义及工具是否实际可用。
 assert_usable() {
   env HOME="$test_home" XDG_CONFIG_HOME="$test_directory/different-config" ZDOTDIR= \
-    /bin/zsh -f -c 'source "$1"; (( $+functions[dsize] )); dsize --help >/dev/null' -- "$1" ||
-    fail '安装后不能加载 dsize'
+    /bin/zsh -f -c 'source "$1"; (( $+functions[sample] )); sample --help >/dev/null' -- "$1" ||
+    fail '安装后不能加载 sample'
 }
 
 # 统计备份数量只遍历当前用例，不触碰其他用户目录。
@@ -53,12 +53,12 @@ backup_count() {
 
 # 文件标识和时间一起验证真正的幂等，不依赖等待跨过时间戳精度。
 file_identity() {
-  file_stat "$zshrc" "$install_directory/init.zsh" "$install_directory/tools/dsize/dsize.zsh"
+  file_stat "$zshrc" "$install_directory/init.zsh" "$install_directory/tools/sample/sample.zsh"
 }
 
 new_home first
 run_install 0 首次安装
-tool_matches "$project_dir" dsize "$install_directory/tools/dsize/dsize.zsh" || fail '工具内容不一致'
+tool_matches "$project_dir" sample "$install_directory/tools/sample/sample.zsh" || fail '工具内容不一致'
 assert_usable "$zshrc"
 [ "$(backup_count)" -eq 0 ] || fail '首次安装不应产生备份'
 identity=$(file_identity)
@@ -87,8 +87,8 @@ done
 assert_usable "$zshrc"
 
 # 修改管理内容并添加用户区域，检查更新只替换管理区域。
-printf '\n# customized dsize\n' >> "$install_directory/tools/dsize/dsize.zsh"
-cp "$install_directory/tools/dsize/dsize.zsh" "$test_directory/custom-dsize"
+printf '\n# customized sample\n' >> "$install_directory/tools/sample/sample.zsh"
+cp "$install_directory/tools/sample/sample.zsh" "$test_directory/custom-sample"
 awk '/^# <<< mac-shell-tools managed tools <<</ { print ": # stale managed command" } { print }' \
   "$install_directory/init.zsh" > "$test_directory/changed-init"
 cat "$test_directory/changed-init" > "$install_directory/init.zsh"
@@ -101,15 +101,15 @@ printf '# setting after managed block\n' >> "$zshrc"
 cp "$install_directory/init.zsh" "$test_directory/custom-init"
 cp "$zshrc" "$test_directory/custom-zshrc"
 run_install 0 更新
-tool_matches "$project_dir" dsize "$install_directory/tools/dsize/dsize.zsh" || fail '没有更新工具'
+tool_matches "$project_dir" sample "$install_directory/tools/sample/sample.zsh" || fail '没有更新工具'
 grep -Fq '# extra tool stays registered' "$install_directory/init.zsh" || fail '丢失入口用户区域'
 if grep -Fq 'stale managed command' "$install_directory/init.zsh"; then fail '管理区域未刷新'; fi
 grep -Fq '# setting after managed block' "$zshrc" || fail '丢失主配置用户内容'
 [ "$(tail -n 1 "$zshrc")" = '# <<< mac-shell-tools <<<' ] || fail '入口没有移到主配置末尾'
 [ "$(backup_count)" -eq 4 ] || fail '更新没有备份所有变化文件'
-for saved in dsize init zshrc; do
+for saved in sample init zshrc; do
   case $saved in
-    dsize) target="$install_directory/backups/tools/dsize/dsize.zsh" ;;
+    sample) target="$install_directory/backups/tools/sample/sample.zsh" ;;
     init) target="$install_directory/backups/init.zsh" ;;
     zshrc) target="$install_directory/backups/zshrc/.zshrc" ;;
   esac
@@ -133,13 +133,13 @@ printf '20260101-010101\n'
 MOCK
 chmod +x "$test_directory/mock/date"
 for revision in one two; do
-  printf '\n# change %s\n' "$revision" >> "$install_directory/tools/dsize/dsize.zsh"
-  cp "$install_directory/tools/dsize/dsize.zsh" "$test_directory/revision-$revision"
+  printf '\n# change %s\n' "$revision" >> "$install_directory/tools/sample/sample.zsh"
+  cp "$install_directory/tools/sample/sample.zsh" "$test_directory/revision-$revision"
   run_install 0 快速连续备份 PATH="$test_directory/mock:$PATH"
 done
 for revision in one two; do
   found=0
-  for backup in "$install_directory"/backups/tools/dsize/dsize.zsh.bak.20260101-010101.*; do
+  for backup in "$install_directory"/backups/tools/sample/sample.zsh.bak.20260101-010101.*; do
     if cmp -s "$backup" "$test_directory/revision-$revision"; then found=1; fi
   done
   [ "$found" -eq 1 ] || fail '同时间戳备份被覆盖'
@@ -149,7 +149,7 @@ new_home custom-paths
 custom_config="$test_directory/config 空格' "'$value'
 custom_zdot="$test_directory/zdot 空格' "'$value'
 run_install 0 自定义路径 XDG_CONFIG_HOME="$custom_config" ZDOTDIR="$custom_zdot"
-tool_matches "$project_dir" dsize "$custom_config/zsh/mac-shell-tools/tools/dsize/dsize.zsh" || fail '工具未安装到 XDG 路径'
+tool_matches "$project_dir" sample "$custom_config/zsh/mac-shell-tools/tools/sample/sample.zsh" || fail '工具未安装到 XDG 路径'
 assert_usable "$custom_zdot/.zshrc"
 [ ! -e "$test_home/.zshrc" ] || fail '忽略了 ZDOTDIR'
 for assignment in XDG_CONFIG_HOME=relative ZDOTDIR=relative HOME=relative; do
@@ -164,7 +164,7 @@ printf '# personal entry\n' > "$install_directory/init.zsh"
 cp "$install_directory/init.zsh" "$test_directory/unknown-init.snapshot"
 run_install 1 未知入口
 cmp -s "$install_directory/init.zsh" "$test_directory/unknown-init.snapshot" || fail '覆盖未知入口'
-[ ! -e "$zshrc" ] && [ ! -e "$install_directory/tools/dsize/dsize.zsh" ] || fail '失败前已修改配置'
+[ ! -e "$zshrc" ] && [ ! -e "$install_directory/tools/sample/sample.zsh" ] || fail '失败前已修改配置'
 
 for malformed in incomplete reversed duplicate similar; do
   new_home "malformed-$malformed"
@@ -177,20 +177,20 @@ for malformed in incomplete reversed duplicate similar; do
   cp "$zshrc" "$test_directory/bad-zshrc"
   run_install 1 损坏标记
   cmp -s "$zshrc" "$test_directory/bad-zshrc" || fail '改写损坏配置'
-  [ ! -e "$install_directory/tools/dsize/dsize.zsh" ] || fail '损坏配置仍写入工具'
+  [ ! -e "$install_directory/tools/sample/sample.zsh" ] || fail '损坏配置仍写入工具'
 done
 new_home invalid-syntax
 printf 'if invalid shell syntax\n' > "$zshrc"
 run_install 1 主配置语法错误
-[ ! -e "$install_directory/tools/dsize/dsize.zsh" ] || fail '语法检查失败后仍写入工具'
+[ ! -e "$install_directory/tools/sample/sample.zsh" ] || fail '语法检查失败后仍写入工具'
 
-for linked in zshrc init dsize directory; do
+for linked in zshrc init sample directory; do
   new_home "symlink-$linked"
-  mkdir -p "$install_directory/tools/dsize"
+  mkdir -p "$install_directory/tools/sample"
   case $linked in
     zshrc) link=$zshrc ;;
     init) link="$install_directory/init.zsh" ;;
-    dsize) link="$install_directory/tools/dsize/dsize.zsh" ;;
+    sample) link="$install_directory/tools/sample/sample.zsh" ;;
     directory) rm -r "$install_directory"; link=$install_directory ;;
   esac
   original="$test_home/link-target"
@@ -211,7 +211,7 @@ printf '# readonly\n' > "$zshrc"
 chmod 400 "$zshrc"
 if [ ! -w "$zshrc" ]; then
   run_install 1 文件不可写
-  [ ! -e "$install_directory/tools/dsize/dsize.zsh" ] || fail '权限预检失败后仍写入工具'
+  [ ! -e "$install_directory/tools/sample/sample.zsh" ] || fail '权限预检失败后仍写入工具'
 fi
 chmod 600 "$zshrc"
 new_home occupied-lock
