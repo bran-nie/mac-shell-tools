@@ -21,8 +21,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # Package version: 0.1.0-dev+d8a7b9c62aca
-# Source revision: 99eee0f192fb3ab7b0185a166a2927621de03e4a
-# Source state: modified
+# Source revision: de295ac40bc905850519eeadb32ba33f53dcf4b3
+# Source state: clean
 # Source digest: d8a7b9c62aca4888227277af4c0b724f7fa2e6262d3ceb3cba075570c3413a83
 # mac-shell-tools bootstrap v1
 # The v1 marker lets existing managers delegate to this lightweight bootstrap.
