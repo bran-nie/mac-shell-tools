@@ -9,6 +9,8 @@ test_directory=$(mktemp -d "${TMPDIR:-/tmp}/mac-shell-tools-install-test.XXXXXX"
 trap 'chmod -R u+rwX "$test_directory"; rm -rf "$test_directory"' 0
 trap 'exit 1' HUP INT TERM
 checks=0
+mock_node_npm "$test_directory/dependencies"
+export PATH="$test_directory/dependencies:$PATH"
 
 # 失败立即结束，保留在终端中的具体断言和安装器诊断。
 fail() {

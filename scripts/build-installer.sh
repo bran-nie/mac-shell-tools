@@ -26,7 +26,7 @@ for tool_file in $(cat "$script_dir/tools.list"); do
     printf 'Missing or linked source: %s\n' "$component/$tool_file" >&2; exit 1;
   }
   source_files="$source_files tools/$tool_name/$tool_file"
-  for asset in locales/en.sh locales/zh-CN.sh install.mode downloads.list; do
+  for asset in locales/en.sh locales/zh-CN.sh install.mode downloads.list dependencies.list; do
     if [ -f "$component/$asset" ]; then source_files="$source_files tools/$tool_name/$asset"; fi
   done
 done

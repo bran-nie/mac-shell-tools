@@ -886,6 +886,8 @@ main() {
     bootstrap) ;;
   esac
   select_files
+  # Check selected tools before creating installation state, including --all.
+  check_selected_dependencies
   write_manager_runtime=no
   write_repository_runtime=no
   case $action in
@@ -924,6 +926,7 @@ main() {
   case $invocation_mode in installed) load_local_catalog ;; bootstrap) ;; esac
   read_installed
   select_files
+  check_selected_dependencies
   ensure_directory "$tools_directory"
   ensure_directory "$backup_directory"
   if [ "$write_manager_runtime" = yes ]; then

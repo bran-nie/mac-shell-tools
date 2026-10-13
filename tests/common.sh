@@ -35,6 +35,21 @@ render_tool() {
 
 state_names() { awk -F '\t' '{print $1}' "$1"; }
 
+# Installation checks command availability; no test invokes the real npm.
+mock_node_npm() {
+  mkdir -p "$1"
+  for mock_command in node npm; do
+    cat > "$1/$mock_command" <<'MOCK'
+#!/bin/sh
+case ${1:-} in
+  --version) printf 'test-runtime\n'; exit 0 ;;
+  *) printf 'Unexpected runtime invocation in installer test.\n' >&2; exit 90 ;;
+esac
+MOCK
+    chmod +x "$1/$mock_command"
+  done
+}
+
 tool_matches() {
   render_tool "$1" "$2" > "$test_directory/expected-tool"
   cmp -s "$test_directory/expected-tool" "$3"

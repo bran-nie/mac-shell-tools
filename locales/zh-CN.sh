@@ -24,6 +24,8 @@ mst_text_zh_CN() {
     error.catalog) printf '%s\n' '工具目录清单无效：%s' ;;
     error.repository) printf '%s\n' '本地工具仓库缺失；请运行 mst upgrade 同步。' ;;
     error.download_manifest) printf '%s\n' '在线资源清单无效：%s' ;;
+    error.dependency_manifest) printf '%s\n' '无效的命令依赖声明：%s' ;;
+    error.tool_dependency) printf '%s\n' '%s 需要当前 PATH 中的命令 %s。请先启用依赖，再安装或更新工具。' ;;
     error.checksum) printf '%s\n' '下载资源的校验值不匹配：%s' ;;
     error.assets) printf '%s\n' '工具文件清单无效：%s' ;;
     error.available) printf '%s\n' '当前安装包不提供工具：%s' ;;

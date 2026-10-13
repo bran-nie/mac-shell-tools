@@ -1,7 +1,8 @@
 #!/bin/sh
-# Exercise the actual three-tool package, using its separate local source files.
+# Exercise the actual tool package, using its separate local source files.
 set -eu
 project_dir=$1
+. "$project_dir/tests/common.sh"
 test_directory=$(mktemp -d "${TMPDIR:-/tmp}/mac-shell-tools-catalog-test.XXXXXX")
 trap 'rm -rf "$test_directory"' 0
 trap 'exit 1' HUP INT TERM
@@ -9,6 +10,8 @@ test_home="$test_directory/home"
 install_directory="$test_home/.config/zsh/mac-shell-tools"
 checks=0
 mkdir -p "$test_home"
+mock_node_npm "$test_directory/dependencies"
+export PATH="$test_directory/dependencies:$PATH"
 fail() {
   printf 'FAIL catalog: %s\n' "$*" >&2
   cat "$test_directory/out" "$test_directory/err" >&2
@@ -28,7 +31,7 @@ shell_run() {
 run
 [ ! -f "$install_directory/tools/installed.list" ] || fail 'default bootstrap installed tools'
 run list
-for tool in dsize portwho extract; do
+for tool in dsize portwho extract npmg; do
   awk -v tool="$tool" '$1 == tool && $2 == "not" && $3 == "installed" {found=1} END {exit !found}' "$test_directory/out" || fail "catalog lacks $tool"
 done
 run install portwho extract
@@ -50,7 +53,12 @@ grep -Fq '用法：portwho' "$test_directory/out" || fail 'portwho saved languag
 grep -Fq '用法：extract' "$test_directory/out" || fail 'extract saved language'
 shell_run 'mst config language en && portwho --help && extract --help'
 run install --all
-shell_run '(( $+functions[dsize] && $+functions[portwho] && $+functions[extract] ))'
+shell_run '(( $+functions[dsize] && $+functions[portwho] && $+functions[extract] && $+functions[npmg] )) && npmg --help && npmg --version'
+grep -Fq "npmg $package_version (" "$test_directory/out" || fail 'npmg installed version'
+[ -f "$install_directory/tools/npmg/dependencies.list" ] || fail 'npmg dependencies not packaged'
+shell_run 'mst config language zh-CN && npmg --help && npmg config show'
+grep -Fq '用法：npmg' "$test_directory/out" || fail 'npmg saved language'
+shell_run 'mst config language en'
 printf 'personal content\n' > "$install_directory/tools/portwho/personal.txt"
 run uninstall portwho
 [ -f "$install_directory/tools/portwho/personal.txt" ] || fail 'uninstall deleted personal file'
@@ -59,5 +67,5 @@ shell_run '(( ! $+functions[portwho] && $+functions[extract] && $+functions[dsiz
 run uninstall extract
 shell_run '(( ! $+functions[portwho] && ! $+functions[extract] && $+functions[dsize] ))'
 run uninstall --all
-shell_run '(( $+functions[mst] && ! $+functions[dsize] && ! $+functions[portwho] && ! $+functions[extract] ))'
+shell_run '(( $+functions[mst] && ! $+functions[dsize] && ! $+functions[portwho] && ! $+functions[extract] && ! $+functions[npmg] ))'
 printf 'PASS catalog: %s actual-tool packaging, selection, language, and uninstall checks.\n' "$checks"

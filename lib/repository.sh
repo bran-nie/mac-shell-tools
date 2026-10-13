@@ -38,6 +38,33 @@ valid_asset_path() {
   case $1 in ''|/*|.*|*/.*|*..*|*[!a-zA-Z0-9./-]*|files.list) return 1 ;; *) return 0 ;; esac
 }
 
+validate_tool_dependencies() {
+  check_file "$1/dependencies.list"
+  if [ -f "$1/dependencies.list" ]; then
+    # A declaration contains command names only, never executable hooks or flags.
+    awk '!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/ || seen[$0]++ {bad=1} END {exit bad || NR == 0}' \
+      "$1/dependencies.list" || fail error.dependency_manifest "$1/dependencies.list"
+  fi
+}
+
+check_selected_dependencies() {
+  case $action in
+    install|update) ;;
+    setup|upgrade|uninstall|list) return 0 ;;
+  esac
+  for dependency_tool in $selected_files; do
+    dependency_component=$(available_component "$dependency_tool")
+    check_directory "$dependency_component"
+    validate_tool_dependencies "$dependency_component"
+    if [ -f "$dependency_component/dependencies.list" ]; then
+      while IFS= read -r tool_dependency || [ -n "$tool_dependency" ]; do
+        command -v "$tool_dependency" >/dev/null 2>&1 || \
+          fail error.tool_dependency "${dependency_tool%.zsh}" "$tool_dependency"
+      done < "$dependency_component/dependencies.list"
+    fi
+  done
+}
+
 validate_downloads() {
   check_file "$1"
   [ -f "$1" ] || fail error.download_manifest "$1"
@@ -55,7 +82,7 @@ validate_downloads() {
     # Remote resources supplement the bundle; they cannot replace its source,
     # language catalogs, ownership or provenance records.
     case $download_path in
-      *.zsh|*.sh|version|install.mode|downloads.list|*/files.list) fail error.download_manifest "$1" ;;
+      *.zsh|*.sh|version|install.mode|downloads.list|dependencies.list|*/files.list) fail error.download_manifest "$1" ;;
     esac
   done < "$1"
 }
@@ -71,6 +98,7 @@ load_source_catalog() {
     contains_file "$tool_files" "$catalog_file" && fail error.catalog "$catalog_file"
     catalog_component="$source_directory/tools/${catalog_file%.zsh}"
     catalog_mode=$(source_install_mode "$catalog_component")
+    validate_tool_dependencies "$catalog_component"
     check_file "$catalog_component/$catalog_file"
     [ -f "$catalog_component/$catalog_file" ] || fail error.catalog "$catalog_file"
     case $catalog_mode in
@@ -137,6 +165,10 @@ prepare_source_payload() {
     printf '%s\n%s\n%s\n' "$package_version" "$package_revision" "$package_state" > "$payload_target/version"
     cp "$source_directory/LICENSE" "$payload_target/LICENSE"
     printf '%s\n' "$payload_file" version LICENSE > "$payload_target/files.list"
+    if [ -f "$payload_source/dependencies.list" ]; then
+      cp "$payload_source/dependencies.list" "$payload_target/dependencies.list"
+      printf '%s\n' dependencies.list >> "$payload_target/files.list"
+    fi
     if [ -d "$payload_source/locales" ]; then
       check_directory "$payload_source/locales"
       mkdir "$payload_target/locales"

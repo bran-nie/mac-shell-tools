@@ -24,6 +24,8 @@ mst_text_en() {
     error.catalog) printf '%s\n' 'Invalid tool catalog: %s' ;;
     error.repository) printf '%s\n' 'Local tool repository is missing; run mst upgrade to synchronize it.' ;;
     error.download_manifest) printf '%s\n' 'Invalid online resource manifest: %s' ;;
+    error.dependency_manifest) printf '%s\n' 'Invalid command dependency declaration: %s' ;;
+    error.tool_dependency) printf '%s\n' '%s requires command %s in the current PATH. Make it available before installing or updating the tool.' ;;
     error.checksum) printf '%s\n' 'Downloaded resource checksum mismatch: %s' ;;
     error.assets) printf '%s\n' 'Invalid owned-file manifest: %s' ;;
     error.available) printf '%s\n' 'Tool is unavailable in this package: %s' ;;

@@ -63,7 +63,7 @@ printf 'unexpected scan\n' >> "$MST_SCAN_LOG"
 exit 1
 MOCK
 chmod +x "$test_directory/mock/du"
-for backend in lsof tar unzip; do
+for backend in lsof tar unzip npm node; do
   cp "$test_directory/mock/du" "$test_directory/mock/$backend"
 done
 touch "$test_directory/tree/bundle file.zip" "$test_directory/tree/归档.ZIP" \
@@ -85,6 +85,7 @@ bindkey -e
 source "$MST_PROJECT/tools/init.zsh"
 [[ ${_comps[dsize]-} == _dsize ]] || exit 1
 [[ ${_comps[portwho]-} == _portwho && ${_comps[extract]-} == _extract ]] || exit 1
+[[ ${_comps[npmg]-} == _npmg ]] || exit 1
 cd "$MST_TREE" || exit 1
 
 # 记录真实补全后的命令行；不会执行 BUFFER 中的统计命令。
@@ -143,6 +144,21 @@ expect_completion 解压目标目录 'extract -C sp' 'extract -C space\ director
 expect_completion 解压长目标目录 'extract --directory=sp' 'extract --directory=space\ directory/'
 expect_completion 解压分隔符 'extract -- -bun' 'extract -- -bundle.tgz '
 expect_completion 不补全第二压缩包 'extract sample.zip bun' 'extract sample.zip bun'
+expect_completion npm安装 'npmg ins' 'npmg install '
+expect_completion npm更新 'npmg upd' 'npmg update '
+expect_completion npm卸载 'npmg unins' 'npmg uninstall '
+expect_completion npm列表 'npmg lis' 'npmg list '
+expect_completion npm配置 'npmg conf' 'npmg config '
+expect_completion npm完整配置命令 'npmg config' 'npmg config '
+expect_completion npm配置查看 'npmg config sh' 'npmg config show '
+expect_completion npm配置目录 'npmg config pre' 'npmg config prefix '
+expect_completion npm配置路径 'npmg config prefix sp' 'npmg config prefix space\ directory/'
+expect_completion npm配置重置 'npmg config prefix --re' 'npmg config prefix --reset '
+expect_completion npm帮助 'npmg --he' 'npmg --help '
+expect_completion npm版本 'npmg --vers' 'npmg --version '
+expect_completion npm安装预览 'npmg install live-server --dry' 'npmg install live-server --dry-run '
+expect_completion npm目录选项 'npmg install live-server --prefix=sp' 'npmg install live-server --prefix=space\ directory/'
+expect_completion npm不查询包名 'npmg install nonexistent-package-xyz' 'npmg install nonexistent-package-xyz'
 expect_completion 英文选项列表 'dsize -' 'dsize -'
 zselect -t 10
 while zpty -r mst-completion chunk 2>/dev/null; do terminal_output+=$chunk; done
