@@ -39,6 +39,7 @@ mst install dsize
 | `mst uninstall dsize` | 卸载指定工具，删除前备份 |
 | `mst uninstall --all` | 卸载全部已登记工具，保留 mst |
 | `mst config language` | 查看保存的语言，默认英文 |
+| `mst config language list` | 列出支持的语言，标记当前生效的语言 |
 | `mst config language en` | 将 mst 和工具的语言保存为英文 |
 | `mst config language zh-CN` | 将 mst 和工具的语言保存为简体中文 |
 | `mst --help` | 查看命令和参数 |
@@ -92,10 +93,13 @@ mst install dsize
 mst config language zh-CN   # 保存为简体中文
 mst config language en      # 保存为英文
 mst config language         # 查看保存的语言
+mst config language list    # 列出语言，* 表示当前生效的语言
 mst --lang zh-CN list        # 仅本次命令使用中文
 mst --version
 dsize --version
 ```
+
+`mst config language list` 展示 `en`（English）和 `zh-CN`（简体中文），不会修改配置。`*` 标记遵循 `--lang` → `MST_LANG` → 保存的偏好 → 英文的优先级。`mst config language` 及其参数支持 Tab 补全。
 
 项目使用 `主版本.次版本.修订号`，发布标签为 `vX.Y.Z`；每个工具独立维护版本，开发版本包含 `-dev` 和该工具自身的源码摘要。新增工具、修改管理器或文档不改变其他工具的可用版本；共享运行依赖变化会更新受影响的工具版本。`mst upgrade` 保留已安装版本，`mst update` 更新已安装工具，详见[版本与发布](docs/development.md#版本与发布)。
 

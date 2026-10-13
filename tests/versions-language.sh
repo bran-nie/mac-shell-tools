@@ -39,6 +39,12 @@ shell_run() {
   checks=$((checks + 1))
 }
 
+assert_languages() {
+  grep -Eq '^. en[[:space:]]+English$' "$test_directory/out" || fail 'English missing from language list'
+  grep -Eq '^. zh-CN[[:space:]]+简体中文$' "$test_directory/out" || fail 'Chinese missing from language list'
+  [ "$(awk '$1 == "*" {print $2}' "$test_directory/out")" = "$1" ] || fail 'wrong current language marker'
+}
+
 # Read-only commands do not create installation state.
 run 0 --version
 package_version=$(awk '/^# Package version: / {print $4; exit}' "$project_dir/install.sh")
@@ -48,6 +54,14 @@ run 0 --help
 grep -Fq 'Usage: mst' "$test_directory/out" || fail 'default is not English'
 run 0 config language
 grep -Fxq 'Language: en' "$test_directory/out" || fail 'default language is not en'
+run 0 config language list
+grep -Fxq 'Supported languages (* = current):' "$test_directory/out" || fail 'English language list heading missing'
+assert_languages en
+run 0 --lang=zh-CN config language list
+grep -Fxq '支持的语言（* 表示当前生效）：' "$test_directory/out" || fail 'Chinese language list heading missing'
+assert_languages zh-CN
+run 2 config language list en
+run 2 config language list --all
 [ ! -e "$test_home/.config" ] && [ ! -e "$zshrc" ] || fail 'query wrote configuration'
 
 fixture="$test_directory/release"
@@ -71,6 +85,18 @@ grep -Fq "dsize $tool_version (" "$test_directory/out" || fail 'tool version out
 shell_run 0 'mst config language zh-CN; dsize --help; mst --help'
 grep -Fq '用法：dsize' "$test_directory/out" || fail 'loaded tool did not switch'
 grep -Fq '用法：mst' "$test_directory/out" || fail 'manager did not switch'
+cp -R "$install_directory" "$test_directory/before-language-list"
+shell_run 0 'mst config language list'
+assert_languages zh-CN
+shell_run 0 'MST_LANG=en mst config language list'
+assert_languages en
+shell_run 0 'MST_LANG=en mst config language --lang zh-CN list'
+assert_languages zh-CN
+shell_run 0 'MST_LANG=zh-CN mst --lang=en config language list'
+assert_languages en
+shell_run 0 'MST_LANG=en mst config language'
+grep -Fxq 'Language: zh-CN' "$test_directory/out" || fail 'query should still show saved preference'
+diff -r "$install_directory" "$test_directory/before-language-list" > "$test_directory/diff" || fail 'language list changed installation or preference'
 shell_run 2 'mst invalid-command'
 grep -Fq '未知命令' "$test_directory/err" || fail 'saved language did not apply to parse errors'
 shell_run 2 'dsize --invalid'

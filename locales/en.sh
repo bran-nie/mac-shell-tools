@@ -12,7 +12,7 @@ mst_text_en() {
     error.uninstall_names) printf '%s\n' 'Specify tools to uninstall, or use uninstall --all.' ;;
     error.language) printf '%s\n' 'Unsupported language: %s (use en or zh-CN).' ;;
     error.language_value) printf '%s\n' '--lang requires en or zh-CN.' ;;
-    error.config) printf '%s\n' 'Usage: mst config language [en|zh-CN]' ;;
+    error.config) printf '%s\n' 'Usage: mst config language [list|en|zh-CN]' ;;
     error.absolute) printf '%s\n' '%s must be an absolute path: %s' ;;
     error.symlink) printf '%s\n' 'Symbolic link preserved; refusing to manage: %s' ;;
     error.file_type) printf '%s\n' 'Target is not a regular file: %s' ;;
@@ -64,6 +64,7 @@ mst_text_en() {
     info.empty) printf '%s\n' 'No tools are installed; nothing to update.' ;;
     info.no_tools) printf '%s\n' 'No tools to process. Run mst list to see their status.' ;;
     info.language) printf '%s\n' 'Language: %s' ;;
+    language.list_header) printf '%s\n' 'Supported languages (* = current):' ;;
     info.migrate) printf '%s\n' 'Migrating the registered installation from %s' ;;
     info.migrated) printf '%s\n' 'Migration complete. Personal files and existing backups remain in %s' ;;
     status.not_installed) printf '%s\n' 'not installed' ;;
@@ -83,6 +84,7 @@ Commands:
   upgrade                 Upgrade mst and sync scripts; keep installed tools unchanged.
   version                 Show mst'\''s installed version and source revision.
   config language         Show the saved language (default: en).
+  config language list    List supported languages; mark the current language.
   config language en      Save English for mst and tools.
   config language zh-CN   Save Simplified Chinese for mst and tools.
 

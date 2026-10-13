@@ -10,3 +10,32 @@ mst() {
   fi
   command /bin/sh "$manager_launcher" "$@"
 }
+
+# Complete configuration locally without invoking the manager or changing files.
+_mst() {
+  setopt localoptions
+  local state state_descr line
+  local curcontext="$curcontext"
+  local -A opt_args
+  _arguments -C -S \
+    '(-h --help)'{-h,--help} \
+    '(-V --version)'{-V,--version} \
+    '--all' '--no-run-zsh' '--unattended' \
+    '--lang=:language:(en zh-CN)' \
+    '1:command:(install update uninstall list upgrade version config)' \
+    '2:setting:->setting' \
+    '3:language:->language'
+  case $state in
+    setting)
+      if [[ ${line[1]-} == config ]]; then compadd -- language; fi ;;
+    language)
+      # Language choices belong only to this setting, never to tool operands.
+      if [[ ${line[1]-} == config && ${line[2]-} == language ]]; then
+        compadd -- list en zh-CN
+      fi ;;
+  esac
+}
+
+if (( $+functions[compdef] )); then
+  compdef _mst mst
+fi

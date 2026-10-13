@@ -185,7 +185,7 @@ RC
 start_command /bin/sh "$MST_INSTALLER" install dsize
 expect_login 1
 [[ $terminal_output != *__MST_UNEXPECTED_COMPINIT__* ]] || fail '重复初始化已有补全系统'
-zpty -w mst-session 'source "$HOME/.config/zsh/mac-shell-tools/init.zsh"; [[ ${_comps[personal-command]-} == _files && ${_comps[dsize]-} == _dsize ]] && print -r -- __MST_REUSE_""OK__'
+zpty -w mst-session 'source "$HOME/.config/zsh/mac-shell-tools/init.zsh"; [[ ${_comps[personal-command]-} == _files && ${_comps[dsize]-} == _dsize && ${_comps[mst]-} == _mst ]] && print -r -- __MST_REUSE_""OK__'
 read_until __MST_REUSE_OK__
 [[ $terminal_output != *__MST_UNEXPECTED_COMPINIT__* ]] || fail '重复 source 重新运行 compinit'
 (( checks++ ))

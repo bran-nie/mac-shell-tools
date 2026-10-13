@@ -87,10 +87,11 @@ English is the default; Simplified Chinese uses `zh-CN`:
 mst config language zh-CN
 mst config language en
 mst config language
+mst config language list
 mst --lang zh-CN list
 ```
 
-The saved setting applies to mst and tool help, diagnostics, and completion descriptions on the next call, including already loaded tools. Changing it does not start a new shell. `--lang` overrides the manager's language for one command; `MST_LANG=en` or `MST_LANG=zh-CN` provides an environment override for mst or a tool. Precedence is `--lang` → `MST_LANG` → saved preference → English. The query shows the saved preference.
+The saved setting applies to mst and tool help, diagnostics, and completion descriptions on the next call, including already loaded tools. Changing it does not start a new shell. `--lang` overrides the manager's language for one command; `MST_LANG=en` or `MST_LANG=zh-CN` provides an environment override for mst or a tool. Precedence is `--lang` → `MST_LANG` → saved preference → English. `mst config language` shows the saved preference. `mst config language list` lists `en` (English) and `zh-CN` (简体中文), marking the effective language with `*`; it does not write configuration or start a new shell. The command and language choices support Tab completion.
 
 Preferences are validated data, never sourced as shell code. Unsupported values or malformed configuration produce an error; an explicit language override can be used to repair a malformed configuration. Missing translations fall back to English. Tool names, options, paths, disk-usage data, versions, and exit codes are unchanged by language selection. Manager language packs are upgraded with mst; tool language packs are updated with their tool.
 

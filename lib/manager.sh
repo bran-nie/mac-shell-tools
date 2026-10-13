@@ -111,9 +111,10 @@ parse_arguments() {
       if [ -z "$requested_files" ] && [ "$all_requested" = no ]; then usage_error error.uninstall_names; fi ;;
     config)
       case "$config_arguments" in
-        ' language') config_value= ;;
-        ' language en') config_value=en ;;
-        ' language zh-CN') config_value=zh-CN ;;
+        ' language') config_action=show ;;
+        ' language list') config_action=list ;;
+        ' language en') config_action=set; config_value=en ;;
+        ' language zh-CN') config_action=set; config_value=zh-CN ;;
         *) usage_error error.config ;;
       esac
       [ "$all_requested" = no ] || usage_error error.config ;;
@@ -791,12 +792,21 @@ prepare_migration() {
   preflight_write "$stage/legacy-root" "$manager_directory/migration-complete"
 }
 
-configure_language() {
-  if [ -z "$config_value" ]; then
-    saved_language=$(mst_resolve_language "$settings_file" '') || exit 2
-    message info.language "$saved_language"
-    return 0
-  fi
+list_languages() {
+  message language.list_header
+  for supported_language in en zh-CN; do
+    case $supported_language in
+      en) language_name=English ;;
+      zh-CN) language_name=简体中文 ;;
+    esac
+    language_marker=' '
+    # Mark the effective language, including one-command and environment overrides.
+    if [ "$supported_language" = "$language" ]; then language_marker='*'; fi
+    printf '%s %-6s %s\n' "$language_marker" "$supported_language" "$language_name"
+  done
+}
+
+save_language() {
   check_file "$settings_file"
   ensure_directory "$install_directory"
   ensure_directory "$backup_directory"
@@ -810,6 +820,16 @@ configure_language() {
   write_file "$stage/config.conf" "$settings_file"
   message info.language "$config_value"
   finish
+}
+
+configure_language() {
+  case $config_action in
+    show)
+      saved_language=$(mst_resolve_language "$settings_file" '') || exit 2
+      message info.language "$saved_language" ;;
+    list) list_languages ;;
+    set) save_language ;;
+  esac
 }
 
 main() {

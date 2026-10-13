@@ -39,6 +39,7 @@ Use `mst install --all` if you want every available tool. You do not need to kee
 | `mst uninstall dsize` | Uninstall selected tools, with backups |
 | `mst uninstall --all` | Uninstall all registered tools; keep mst available |
 | `mst config language` | Show the saved language; default: English |
+| `mst config language list` | List supported languages and mark the current language |
 | `mst config language en` | Save English for mst and tools |
 | `mst config language zh-CN` | Save Simplified Chinese for mst and tools |
 | `mst --help` | Show commands and options |
@@ -92,10 +93,13 @@ Output defaults to English. A saved language applies to mst and tool help, error
 mst config language zh-CN   # Save Simplified Chinese
 mst config language en      # Save English
 mst config language         # Show the saved language
+mst config language list    # List languages; * marks the effective language
 mst --lang zh-CN list        # Use Chinese for this command only
 mst --version
 dsize --version
 ```
+
+`mst config language list` shows `en` (English) and `zh-CN` (简体中文) without changing settings. Its `*` marker follows `--lang` → `MST_LANG` → saved preference → English. Tab completion is available for `mst config language` and its values.
 
 The project uses `MAJOR.MINOR.PATCH` releases, tagged `vX.Y.Z`. Each tool has an independent version; development versions include `-dev` and that tool's source digest. Adding tools or changing the manager or documentation leaves other tool versions unchanged. Shared runtime changes update the affected tools' versions. `mst upgrade` keeps installed versions; `mst update` updates installed tools. See [versioning details](docs/development.md#版本与发布).
 

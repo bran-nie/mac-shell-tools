@@ -87,10 +87,11 @@ XDG_CONFIG_HOME="$HOME/Custom Config" ZDOTDIR="$HOME/Custom Zsh" sh install.sh
 mst config language zh-CN
 mst config language en
 mst config language
+mst config language list
 mst --lang zh-CN list
 ```
 
-保存的设置在下一次调用时应用到 mst 和工具的帮助、错误及补全说明，已经加载的工具也会读取新设置。语言切换不会启动新会话。`--lang` 仅覆盖本次管理器命令；`MST_LANG=en` 或 `MST_LANG=zh-CN` 可为管理器或工具设置环境覆盖。优先级为 `--lang` → `MST_LANG` → 保存的偏好 → 英文。查询命令显示保存的偏好。
+保存的设置在下一次调用时应用到 mst 和工具的帮助、错误及补全说明，已经加载的工具也会读取新设置。语言切换不会启动新会话。`--lang` 仅覆盖本次管理器命令；`MST_LANG=en` 或 `MST_LANG=zh-CN` 可为管理器或工具设置环境覆盖。优先级为 `--lang` → `MST_LANG` → 保存的偏好 → 英文。`mst config language` 显示保存的偏好。`mst config language list` 列出 `en`（English）和 `zh-CN`（简体中文），用 `*` 标记本次生效的语言，不写入配置或启动新会话。命令及语言选项支持 Tab 补全。
 
 偏好按数据校验，不作为 Shell 脚本执行。不支持的语言或损坏的配置会报错，可使用显式语言覆盖修复损坏配置。缺少译文时回退英文。工具名称、参数、路径、磁盘占用数据、版本和退出码不受语言影响。管理器语言包随 mst 升级；工具语言包随对应工具更新。
 

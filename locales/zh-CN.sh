@@ -12,7 +12,7 @@ mst_text_zh_CN() {
     error.uninstall_names) printf '%s\n' '请指定卸载工具，或使用 uninstall --all。' ;;
     error.language) printf '%s\n' '不支持的语言：%s（请使用 en 或 zh-CN）。' ;;
     error.language_value) printf '%s\n' '--lang 需要 en 或 zh-CN。' ;;
-    error.config) printf '%s\n' '用法：mst config language [en|zh-CN]' ;;
+    error.config) printf '%s\n' '用法：mst config language [list|en|zh-CN]' ;;
     error.absolute) printf '%s\n' '%s 必须是绝对路径：%s' ;;
     error.symlink) printf '%s\n' '目标为符号链接，已保留并停止变更：%s' ;;
     error.file_type) printf '%s\n' '目标不是普通文件：%s' ;;
@@ -64,6 +64,7 @@ mst_text_zh_CN() {
     info.empty) printf '%s\n' '尚未安装工具，无需更新。' ;;
     info.no_tools) printf '%s\n' '没有可处理的工具；可运行 mst list 查看状态。' ;;
     info.language) printf '%s\n' '语言：%s' ;;
+    language.list_header) printf '%s\n' '支持的语言（* 表示当前生效）：' ;;
     info.migrate) printf '%s\n' '正在迁移已登记安装：%s' ;;
     info.migrated) printf '%s\n' '迁移完成；个人文件与已有备份保留在 %s' ;;
     status.not_installed) printf '%s\n' '未安装' ;;
@@ -83,6 +84,7 @@ mst_text_zh_CN() {
   upgrade                 升级 mst 并同步脚本，保留已安装工具。
   version                 查看 mst 的版本和源码修订。
   config language         查看已保存的语言，默认 en。
+  config language list    列出支持的语言，标记当前生效的语言。
   config language en      为 mst 和工具保存英文设置。
   config language zh-CN   为 mst 和工具保存简体中文设置。
 

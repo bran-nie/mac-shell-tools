@@ -84,6 +84,10 @@ zstyle ':completion:*' verbose yes
 bindkey -e
 # Bare Zsh must get completion from the shared loader on either platform.
 source "$MST_PROJECT/tools/init.zsh"
+# The source-tree loader has no installed manager directory.
+source "$MST_PROJECT/lib/mst.zsh"
+[[ ${_comps[mst]-} == _mst ]] || exit 1
+mst() { print -r -- 'unexpected manager invocation' >> "$MST_SCAN_LOG"; return 1; }
 [[ ${_comps[dsize]-} == _dsize ]] || exit 1
 [[ ${_comps[portwho]-} == _portwho && ${_comps[extract]-} == _extract ]] || exit 1
 [[ ${_comps[npmg]-} == _npmg ]] || exit 1
@@ -115,6 +119,18 @@ HOME="$test_directory/home" ZDOTDIR="$test_directory/home" XDG_CONFIG_HOME= \
   zpty -b mst-completion /bin/zsh -d -i
 session_started=1
 read_until __MST_READY__
+expect_completion 管理器配置 'mst conf' 'mst config '
+expect_completion 管理器语言配置 'mst config lan' 'mst config language '
+expect_completion 管理器语言列表 'mst config language li' 'mst config language list '
+expect_completion 管理器英文设置 'mst config language e' 'mst config language en '
+expect_completion 管理器中文设置 'mst config language zh' 'mst config language zh-CN '
+expect_completion 管理器单次语言 'mst --lang zh' 'mst --lang zh-CN '
+expect_completion 管理器等号语言 'mst --lang=zh' 'mst --lang=zh-CN '
+expect_completion 管理器前置语言 'mst --lang en config language li' 'mst --lang en config language list '
+expect_completion 管理器中间语言 'mst config --lang en language li' 'mst config --lang en language list '
+expect_completion 管理器列表无额外参数 'mst config language list en' 'mst config language list en'
+expect_completion 管理器无效配置 'mst config unknown li' 'mst config unknown li'
+expect_completion 工具参数不补语言 'mst install language zh' 'mst install language zh'
 expect_completion 空格目录 'dsize sp' 'dsize space\ directory/'
 expect_completion 中文目录 'dsize 中' 'dsize 中文目录/'
 expect_completion 选项先于目录 'dsize -n 25 sp' 'dsize -n 25 space\ directory/'
