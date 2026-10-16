@@ -8,12 +8,20 @@ mst_text_zh_CN() {
 
   -d N, --depth N, --depth=N  显示深度，十进制整数 0–1000
   -n N, --lines N, --lines=N  最大行数，十进制整数 1–1000000
+  -e 模式, --exclude 模式, --exclude=模式
+                             跳过任意层级的匹配名称，可重复指定
+  -i 模式, --include 模式, --include=模式
+                             仅选择第一层子文件夹名称，可重复指定
   --flat                     使用原来的平铺排行，最大条目在最后
   -V, --version              查看已加载工具的版本
   -h, --help                 显示帮助
   --                         停止解析选项，后面至多一个目录
 
-目录和选项可交错；同一选项重复时最后一次生效。支持前导零。
+目录和选项可交错；深度和行数重复时最后一次生效，过滤规则累加。
+支持前导零。排除的文件或目录不扫描，占用也不计入父目录总量。
+规则使用名称或加引号的通配符（如 "cache*"），不能包含 /；exclude 也匹配根目录。
+include 只匹配第一层真实子文件夹，命中后统计整棵子树；exclude 优先。
+使用 include 时根目录只汇总选中的子树，不计根目录文件；无命中则无输出。
 深度只限制显示层级，计算总量仍会遍历更深内容。
 行数包含根目录和父目录；树形大小使用可读单位。
 结果是目录占用汇总，文件大小计入所属目录，不逐个列出文件。
@@ -27,14 +35,24 @@ mst_text_zh_CN() {
     error.missing) printf '%s\n' '路径不存在：%s' ;;
     error.directory) printf '%s\n' '不是目录：%s' ;;
     error.dependency) printf '%s\n' '缺少命令 %s。' ;;
+    error.exclude_empty) printf '%s\n' '排除规则不能为空。' ;;
+    error.exclude_path) printf '%s\n' '排除规则匹配名称而非路径，请移除 /：%s' ;;
+    error.exclude_backend) printf '%s\n' '排除功能需要 macOS du 或 GNU coreutils du。' ;;
+    error.include_empty) printf '%s\n' '包含规则不能为空。' ;;
+    error.include_path) printf '%s\n' '包含规则只匹配第一层文件夹名称，不接受路径：%s' ;;
+    error.pattern) printf '%s\n' '无效的名称模式：%s' ;;
     error.interrupted) printf '%s\n' '扫描已中断，结果可能不完整。' ;;
     error.partial) printf '%s\n' '不完整扫描；部分目录无法读取或 du 执行失败。' ;;
     error.pipeline) printf '%s\n' '排序、截取或格式化输出失败。' ;;
     label.depth) printf '%s\n' '深度' ;;
     label.lines) printf '%s\n' '条数' ;;
+    label.exclude) printf '%s\n' '名称模式' ;;
+    label.include) printf '%s\n' '文件夹名称模式' ;;
     completion.depth) printf '%s\n' '显示深度，默认 2' ;;
     completion.lines) printf '%s\n' '最大行数，默认 25' ;;
     completion.flat) printf '%s\n' '平铺大小排行，最大条目在最后' ;;
+    completion.exclude) printf '%s\n' '跳过匹配名称及其占用，可重复指定' ;;
+    completion.include) printf '%s\n' '选择第一层子文件夹及其占用，可重复指定' ;;
     completion.help) printf '%s\n' '显示帮助' ;;
     completion.version) printf '%s\n' '显示版本' ;;
     completion.directory) printf '%s\n' '目录' ;;

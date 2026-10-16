@@ -24,6 +24,9 @@ dsize ~/.config --depth=3 --lines=30
 dsize "$HOME/path with spaces" -n 30
 dsize -- ./-example
 dsize --flat                 # Original flat ranking
+dsize --exclude node_modules --exclude .git
+dsize ~/.config -e 'cache*' -d 3
+dsize -i node_modules -i .next
 ```
 
 | Argument | Default | Accepted values |
@@ -31,12 +34,14 @@ dsize --flat                 # Original flat ranking
 | Directory | `.` | One existing directory |
 | `-d N`, `--depth N`, `--depth=N` | `2` | Decimal integer, 0–1000 |
 | `-n N`, `--lines N`, `--lines=N` | `25` | Decimal integer, 1–1000000 |
+| `-e PATTERN`, `--exclude PATTERN`, `--exclude=PATTERN` | No exclusions | Repeatable nonempty name or glob pattern, without `/` |
+| `-i PATTERN`, `--include PATTERN`, `--include=PATTERN` | All directories | Repeatable first-level subdirectory name or glob, without `/` |
 | `--flat` | | Use the original flat size ranking |
 | `-h`, `--help` | | Show help |
 | `-V`, `--version` | | Show the version loaded in this shell |
 | `--` | | Stop parsing options; at most one directory may follow |
 
-Options and the directory may appear in either order. Repeated options use the last value. Leading zeros are decimal. Quote paths with spaces normally; input strings are never evaluated with `eval`.
+Options and the directory may appear in either order. Repeated depth and line limits use the last value; include and exclude patterns each accumulate. Leading zeros are decimal. Quote paths with spaces normally; input strings are never evaluated with `eval`.
 
 The default output starts with the target directory total, then uses `├──` and `└──` to show parent-child relationships. Children show only their own names, and siblings are ordered largest first. For example:
 
@@ -55,9 +60,43 @@ The `-n` limit includes the root and all displayed parents. It selects the N lar
 
 Both formats show directory totals, including the target directory itself. File usage contributes to its containing directory; individual files are not listed. No headers, colors, or percentages are added.
 
+## Excluding directories
+
+`--exclude` (short form `-e`) skips files or directories with matching names during scanning. Matching directories and their contents are not scanned, and their usage is removed from parent and root totals. This applies to both tree and `--flat` output.
+
+```zsh
+dsize --exclude node_modules                  # Skip node_modules at every level
+dsize -e node_modules -e .git                 # Combine multiple exclusion rules
+dsize --exclude='cache*'                      # Quote name globs
+dsize --exclude='cache with spaces'           # Spaces and non-ASCII names work
+dsize ~/.config --flat --exclude='*.log'      # Files can also be excluded
+```
+
+Patterns match individual names at any level and support shell globs such as `*`, `?`, and `[...]`. Pass `node_modules`, rather than `./node_modules`, `node_modules/`, or an absolute path; path patterns produce an explicit error. Rules also apply to the scan root name. If the root matches, the command succeeds with no output.
+
+macOS uses system `du -I`; GNU Coreutils uses `du --exclude`. The tool detects GNU du in PATH, including on macOS. Without exclusion rules, scanning works as before.
+
+## Including selected subdirectories
+
+`--include` (short form `-i`) matches only **first-level subdirectory names** within the target directory. Each matched directory and its whole subtree are counted. It does not search deeper for matching names or match the root itself or first-level files. First-level directory symlinks are not followed.
+
+```zsh
+dsize --include node_modules --include .next  # Select these direct subdirectories
+dsize -i 'build*'                            # Glob first-level names
+dsize ~/project -i 'directory with spaces' -d 3
+dsize -i node_modules -e cache              # Exclude cache within selected subtrees
+dsize --flat --include=.next                # Flat output is also supported
+```
+
+Multiple includes form a union; overlapping rules do not count a directory twice. Excludes take priority and still apply at every level. Excluded content does not contribute to totals. No matches, or all matches being excluded, succeed with no output. Both include and exclude rules must be valid name globs; malformed bracket patterns produce an error.
+
+With include, the root total sums selected subtrees and **omits the root directory itself and files directly under it**. All selected subtrees are measured by one system `du` invocation, preserving hard-link deduplication across subtrees. Depth remains relative to the original target, and the line limit includes its summary. `-d 0` or `-n 1` displays only the selected total. Selecting directories lists the first level without traversing unselected subdirectories.
+
+Both included tree and flat output use raw KiB data and `awk` to build the summary, then convert to readable units. Flat output remains ascending, with the root summary last. Without include, `--flat` retains native `du` text formatting.
+
 ## Tab completion
 
-`dsize <Tab>` completes directories, including paths with spaces. Short and long options, `--flat`, help flags, depth suggestions (`0 1 2 3 4 5`), and line-count suggestions (`10 25 50 100`) are supported, including `--depth=` and `--lines=`. Suggestions do not restrict accepted values. Completion never starts a disk scan.
+`dsize <Tab>` completes directories, including paths with spaces. Short and long options, `--flat`, help flags, depth suggestions (`0 1 2 3 4 5`), and line-count suggestions (`10 25 50 100`) are supported, including `--depth=`, `--lines=`, and repeatable `--exclude=` / `-e` and `--include=` / `-i` rules. Filter suggestions include `node_modules`, `.git`, and `.next`. Suggestions do not restrict accepted values. Completion never starts a disk scan.
 
 The shared loader reuses completion initialized by Oh My Zsh or your own configuration. In interactive Zsh without `compdef`, it initializes completion before loading tools. Loading the dsize source file alone does not run `compinit`; the command also works without completion.
 

@@ -25,7 +25,7 @@
 | `scripts/ci/` | 变更规划、隔离执行、计时报告及结果汇总 |
 | `docs/tools/<名称>/` | 每个工具独立的英文及中文文档 |
 
-普通工具安装、查询和卸载不需要网络；源码同步使用系统 curl 和 tar。在线工具只在安装或更新时下载其声明的额外资源。工具使用系统命令：dsize 依赖 du/sort，树形输出使用 awk，--flat 使用 tail；portwho 依赖 lsof，extract 按格式依赖 tar 或支持 ZipInfo 的 unzip；npmg 需要当前 PATH 中的 Node 和 npm，实际包操作沿用 npm 的联网行为。完整测试额外使用 Python 3 创建回环监听及压缩包边界用例，使用 zip 创建加密测试包，两者不是工具运行依赖。npmg 契约测试使用隔离替身，不要求机器已安装 Node/npm。
+普通工具安装、查询和卸载不需要网络；源码同步使用系统 curl 和 tar。在线工具只在安装或更新时下载其声明的额外资源。工具使用系统命令：dsize 依赖 du/sort，树形或 include 输出使用 awk，未指定 include 的 --flat 使用 tail；portwho 依赖 lsof，extract 按格式依赖 tar 或支持 ZipInfo 的 unzip；npmg 需要当前 PATH 中的 Node 和 npm，实际包操作沿用 npm 的联网行为。完整测试额外使用 Python 3 创建回环监听及压缩包边界用例，使用 zip 创建加密测试包，两者不是工具运行依赖。npmg 契约测试使用隔离替身，不要求机器已安装 Node/npm。
 
 ## 修改与生成
 
@@ -134,7 +134,7 @@ assets/data<TAB>https://example.org/data<TAB>64位小写SHA-256<TAB>file
 
 `sh scripts/check.sh` 检查语法、生成产物一致性，并在当前 macOS 或 Linux 的隔离环境运行：
 
-- dsize：真实磁盘占用的树形结构、同级排序及行数截取，--flat 的平台原生 BSD / GNU 管道结果，以及参数和路径矩阵、权限、阶段失败、中断、加载及调用隔离。
+- dsize：真实磁盘占用的树形结构、同级排序及行数截取，--flat 的平台原生 BSD / GNU 管道结果，可重复名称/通配符排除、第一层 include 及重叠规则并集、exclude 优先、跨子树硬链接去重、跳过不可读目录及独立总量核对，BSD/GNU 参数契约，以及参数和路径矩阵、权限、阶段失败、中断、加载及调用隔离。
 - portwho：测试自有的本地回环 TCP/UDP 套接字、多个端口、数字边界、权限提示、底层失败及中断，不访问远程网络。
 - extract：ZIP 与 TAR/gzip/bzip2/xz 实际解压、预览、中文空格路径、拒绝覆盖、越界与链接条目、快照清理、失败保留及环境隔离。
 - npmg：快捷安装与子命令、简写、参数边界与默认覆盖顺序、npm 输出/退出码/标准输入、运行时依赖、PATH 去重与优先级；安装依赖声明及缺少依赖时批量安装无写入。

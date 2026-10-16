@@ -64,11 +64,82 @@ _mac_shell_tools_dsize_integer() {
   REPLY=$value
 }
 
+_mac_shell_tools_dsize_filter_pattern() {
+  emulate -L zsh
+  local pattern=$1 filter=$2
+  case $pattern in
+    '') _mac_shell_tools_dsize_message "error.${filter}_empty" >&2; return 2 ;;
+    */*) _mac_shell_tools_dsize_message "error.${filter}_path" "$pattern" >&2; return 2 ;;
+  esac
+  # 不合法的动态 glob 会中断 Zsh；先在子 Shell 校验，保护调用者会话。
+  if ! ( [[ '' == ${~pattern} ]]; : ) 2>/dev/null; then
+    _mac_shell_tools_dsize_message error.pattern "$pattern" >&2
+    return 2
+  fi
+  return 0
+}
+
+_mac_shell_tools_dsize_matches_name() {
+  emulate -L zsh
+  local name=$1 pattern
+  shift
+  for pattern in "$@"; do
+    if [[ $name == ${~pattern} ]]; then return 0; fi
+  done
+  return 1
+}
+
+# include 只选择第一层真实子目录；一次 du 统计所有命中项，保持硬链接去重。
+# 根目录是所选子树的汇总，不计根目录自身及未选中文件的占用。
+_mac_shell_tools_dsize_include_scan() {
+  emulate -L zsh
+  setopt pipefail
+  local scan_root=$scan_directory entry du_depth=0 directory_is_accessible=0
+  local -a selected scan_status
+  while true; do
+    case $scan_root in
+      /) break ;;
+      */) scan_root=${scan_root%/} ;;
+      *) break ;;
+    esac
+  done
+  if _mac_shell_tools_dsize_matches_name "${scan_root:t}" "${exclusions[@]}"; then return 0; fi
+  # 区分“没有命中”与“无法列出第一层”，避免权限错误被误报为成功。
+  if [[ -r $scan_root && -x $scan_root ]]; then directory_is_accessible=1; fi
+  if (( ! directory_is_accessible )); then return 1; fi
+  for entry in "$scan_root"/*(ND/); do
+    if _mac_shell_tools_dsize_matches_name "${entry:t}" "${inclusions[@]}"; then
+      selected+=("$entry")
+    fi
+  done
+  if (( ! ${#selected} )); then return 0; fi
+  if (( depth > 0 )); then du_depth=$(( depth - 1 )); fi
+  {
+    printf 'root\t%s\n' "$scan_directory"
+    for entry in "${selected[@]}"; do printf 'selected\t%s\n' "$entry"; done
+    command du -k -d "$du_depth" "${du_options[@]}" "${selected[@]}" 2>/dev/null
+  } | command awk -v show_children="$depth" '
+    {
+      separator = index($0, "\t")
+      tag = substr($0, 1, separator - 1)
+      entry = substr($0, separator + 1)
+      if (tag == "root") { root = entry; next }
+      if (tag == "selected") { selected[entry] = 1; next }
+      if (entry in selected) { total += tag + 0; has_results = 1 }
+      if (show_children > 0) print $0
+    }
+    END { if (has_results) printf "%.0f\t%s\n", total, root }
+  '
+  scan_status=( "${pipestatus[@]}" )
+  if (( scan_status[1] || scan_status[2] )); then return 1; fi
+  return 0
+}
+
 # 输入按 KiB 降序、路径字节序排列。父目录总量不小于子目录，
 # 同量时路径前缀优先，所以截取前 N 项也会保留它们的祖先。
 # awk 消费完整管道但只保存 N 项，避免提前关闭导致 du/sort 收到 SIGPIPE。
-_mac_shell_tools_dsize_tree() {
-  command awk -v limit="$1" '
+_mac_shell_tools_dsize_format() {
+  command awk -v limit="$1" -v display="$2" '
     function trim_slashes(entry) {
       while (length(entry) > 1 && substr(entry, length(entry)) == "/")
         entry = substr(entry, 1, length(entry) - 1)
@@ -100,6 +171,11 @@ _mac_shell_tools_dsize_tree() {
       positions[paths[count]] = count
     }
     END {
+      if (display == "flat") {
+        for (i = count; i > 0; i--)
+          printf "%6s\t%s\n", human_size(sizes[i]), labels[i]
+        exit
+      }
       for (i = 1; i <= count; i++) {
         parent = parent_path(paths[i])
         parent_id = 0
@@ -151,7 +227,8 @@ dsize() {
   setopt localtraps pipefail
   local directory=. depth=2 lines=25 has_directory=0 REPLY
   local dependency scan_directory output_format=tree interrupted=0
-  local -a dependencies stage_status
+  local inclusion exclusion du_version exclusion_backend scan_mode=all
+  local -a dependencies inclusions exclusions du_options stage_status
   local dsize_language
   dsize_language=$(_mac_shell_tools_dsize_language) || return 2
 
@@ -169,7 +246,7 @@ dsize() {
         output_format=flat
         shift
         ;;
-      -d|--depth|-n|--lines)
+      -d|--depth|-n|--lines|-e|--exclude|-i|--include)
         if (( $# < 2 )); then
           _mac_shell_tools_dsize_message error.value "$1" >&2
           return 2
@@ -177,11 +254,15 @@ dsize() {
         case $1 in
           -d|--depth) depth=$2 ;;
           -n|--lines) lines=$2 ;;
+          -e|--exclude) exclusions+=("$2") ;;
+          -i|--include) inclusions+=("$2") ;;
         esac
         shift 2
         ;;
       --depth=*) depth=${1#*=}; shift ;;
       --lines=*) lines=${1#*=}; shift ;;
+      --exclude=*) exclusions+=("${1#*=}"); shift ;;
+      --include=*) inclusions+=("${1#*=}"); shift ;;
       --)
         shift
         if (( $# > 1 || (has_directory && $# > 0) )); then
@@ -214,6 +295,13 @@ dsize() {
   depth=$REPLY
   _mac_shell_tools_dsize_integer "$lines" 1 1000000 lines || return 2
   lines=$REPLY
+  for inclusion in "${inclusions[@]}"; do
+    _mac_shell_tools_dsize_filter_pattern "$inclusion" include || return 2
+  done
+  for exclusion in "${exclusions[@]}"; do
+    _mac_shell_tools_dsize_filter_pattern "$exclusion" exclude || return 2
+  done
+  if (( ${#inclusions} )); then scan_mode=include; fi
 
   if [[ ! -e $directory ]]; then
     _mac_shell_tools_dsize_message error.missing "$directory" >&2
@@ -224,9 +312,9 @@ dsize() {
     return 2
   fi
   dependencies=(du sort)
-  case $output_format in
-    tree) dependencies+=(awk) ;;
-    flat) dependencies+=(tail) ;;
+  case "$output_format:$scan_mode" in
+    tree:all|tree:include|flat:include) dependencies+=(awk) ;;
+    flat:all) dependencies+=(tail) ;;
   esac
   for dependency in "${dependencies[@]}"; do
     if ! command -v "$dependency" >/dev/null 2>&1; then
@@ -235,21 +323,51 @@ dsize() {
     fi
   done
 
+  if (( ${#exclusions} )); then
+    # 按实际 du 版本识别 GNU，兼容 macOS 上通过 PATH 使用 GNU du。
+    # BSD du 只匹配名称，因此统一拒绝路径模式，避免跨平台静默漏过滤。
+    du_version=$(LC_ALL=C command du --version 2>/dev/null) || du_version=
+    case $du_version in
+      *'(GNU coreutils)'*) exclusion_backend=gnu ;;
+      *)
+        case ${OSTYPE:-} in
+          darwin*) exclusion_backend=bsd ;;
+          *)
+            _mac_shell_tools_dsize_message error.exclude_backend >&2
+            return 1
+            ;;
+        esac
+        ;;
+    esac
+    for exclusion in "${exclusions[@]}"; do
+      case $exclusion_backend in
+        gnu) du_options+=("--exclude=$exclusion") ;;
+        bsd) du_options+=(-I "$exclusion") ;;
+      esac
+    done
+  fi
+
   # 使用 ./ 前缀保护连字符相对路径，不依赖 du 的额外选项。
   case $directory in
     -*) scan_directory=./$directory ;;
     *) scan_directory=$directory ;;
   esac
   trap 'interrupted=1' HUP INT TERM
-  case $output_format in
-    tree)
-      command du -k -d "$depth" "$scan_directory" 2>/dev/null |
+  case "$output_format:$scan_mode" in
+    tree:all)
+      command du -k -d "$depth" "${du_options[@]}" "$scan_directory" 2>/dev/null |
         LC_ALL=C command sort -t $'\t' -k1,1nr -k2 |
-        _mac_shell_tools_dsize_tree "$lines"
+        _mac_shell_tools_dsize_format "$lines" tree
       stage_status=( "${pipestatus[@]}" )
       ;;
-    flat)
-      command du -h -d "$depth" "$scan_directory" 2>/dev/null |
+    tree:include|flat:include)
+      _mac_shell_tools_dsize_include_scan |
+        LC_ALL=C command sort -t $'\t' -k1,1nr -k2 |
+        _mac_shell_tools_dsize_format "$lines" "$output_format"
+      stage_status=( "${pipestatus[@]}" )
+      ;;
+    flat:all)
+      command du -h -d "$depth" "${du_options[@]}" "$scan_directory" 2>/dev/null |
         command sort -h |
         command tail -n "$lines"
       stage_status=( "${pipestatus[@]}" )
@@ -277,21 +395,29 @@ dsize() {
 _dsize() {
   setopt localoptions
   local dsize_language depth_description lines_description flat_description help_description version_description
-  local depth_label lines_label directory_label
+  local include_description exclude_description depth_label lines_label include_label exclude_label directory_label
   dsize_language=$(_mac_shell_tools_dsize_language) || return 2
   depth_description=$(_mac_shell_tools_dsize_message completion.depth)
   lines_description=$(_mac_shell_tools_dsize_message completion.lines)
   flat_description=$(_mac_shell_tools_dsize_message completion.flat)
+  exclude_description=$(_mac_shell_tools_dsize_message completion.exclude)
+  include_description=$(_mac_shell_tools_dsize_message completion.include)
   help_description=$(_mac_shell_tools_dsize_message completion.help)
   version_description=$(_mac_shell_tools_dsize_message completion.version)
   depth_label=$(_mac_shell_tools_dsize_message label.depth)
   lines_label=$(_mac_shell_tools_dsize_message label.lines)
+  exclude_label=$(_mac_shell_tools_dsize_message label.exclude)
+  include_label=$(_mac_shell_tools_dsize_message label.include)
   directory_label=$(_mac_shell_tools_dsize_message completion.directory)
   _arguments -S \
     "*-d[$depth_description]:$depth_label:(0 1 2 3 4 5)" \
     "*--depth=[$depth_description]:$depth_label:(0 1 2 3 4 5)" \
     "*-n[$lines_description]:$lines_label:(10 25 50 100)" \
     "*--lines=[$lines_description]:$lines_label:(10 25 50 100)" \
+    "*-e[$exclude_description]:$exclude_label:(node_modules .git .next)" \
+    "*--exclude=[$exclude_description]:$exclude_label:(node_modules .git .next)" \
+    "*-i[$include_description]:$include_label:(node_modules .git .next)" \
+    "*--include=[$include_description]:$include_label:(node_modules .git .next)" \
     "--flat[$flat_description]" \
     "(-h --help)-h[$help_description]" \
     "(-h --help)--help[$help_description]" \
