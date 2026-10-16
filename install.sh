@@ -20,10 +20,10 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-# Package version: 0.1.0-dev+757dd41bb24d
-# Source revision: 3c17f74c397369294752a4a486437a96323bb020
+# Package version: 0.1.0-dev+d3484aaefeb5
+# Source revision: 73c4c717858494ff86ad1f801816246b5d81140e
 # Source state: clean
-# Source digest: 757dd41bb24d9d8be5e4e382cfd20ca4b43cdd008b9a5b8911fe950c4c049cf2
+# Source digest: d3484aaefeb56178ef71bfb1c66285a6ba4e145367da59dbff75518f57159dd2
 # mac-shell-tools bootstrap v1
 # The v1 marker lets existing managers delegate to this lightweight bootstrap.
 set -eu
