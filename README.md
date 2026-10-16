@@ -54,7 +54,7 @@ After a change, an interactive terminal starts a new login Zsh. Pass `--no-run-z
 
 | Tool | Description | Documentation |
 | --- | --- | --- |
-| `dsize` | Show disk usage for a chosen directory (up to 25 largest results by default), with directory Tab completion | [Usage](docs/tools/dsize/README.md) |
+| `dsize` | Show a disk-usage tree for a chosen directory (up to 25 lines by default), with directory Tab completion | [Usage](docs/tools/dsize/README.md) |
 | `portwho` | Find programs listening on one or more TCP ports, with PID, user, and address | [Usage](docs/tools/portwho/README.md) |
 | `extract` | Extract ZIP and common TAR archives into a new directory, with preview and Tab completion | [Usage](docs/tools/extract/README.md) |
 | `npmg` | Install, update, uninstall, and list npm global packages in a shared directory; requires Node and npm | [Usage](docs/tools/npmg/README.md) |

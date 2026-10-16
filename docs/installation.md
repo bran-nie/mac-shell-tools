@@ -4,7 +4,7 @@
 
 ## Supported systems and Zsh
 
-Supports macOS and Linux. Zsh is required for mst, tools, and completion; Oh My Zsh is optional. Linux requires GNU Coreutils or commands supporting the same tool options (`du -h -d`, `sort -h`, and `tail -n` for dsize), plus curl and tar for online synchronization.
+Supports macOS and Linux. Zsh is required for mst, tools, and completion; Oh My Zsh is optional. Linux requires GNU Coreutils or commands supporting the same tool options (`du -k -d`, `sort -k`, and POSIX `awk` for the dsize tree; `du -h -d`, `sort -h`, and `tail -n` for `--flat`), plus curl and tar for online synchronization.
 
 On Ubuntu 24.04 LTS, prepare missing dependencies with:
 

@@ -1,6 +1,6 @@
 #!/bin/zsh
-# 对比平台原生管道，并覆盖输入、权限、阶段失败及 Shell 隔离。
-# 命令替身只用于稳定重现失败，不替代正常统计的平台验证。
+# 验证真实扫描的树形结构及原生平铺管道，并覆盖输入、失败及 Shell 隔离。
+# 固定 du 数据另外验证大小精度、同量祖先、树枝和深层展示。
 emulate -R zsh
 setopt nounset pipefail
 project_directory=$1
@@ -30,21 +30,32 @@ expect_status() {
   return 0
 }
 
-# 期望值直接来自当前平台的系统命令，验证格式、排序、行数和默认值。
+# 平铺兼容格式逐字对比当前平台的系统命令。
 compare_reference() {
   local label=$1 expected_depth=$2 expected_lines=$3 expected_directory=$4
   shift 4
   /usr/bin/du -h -d "$expected_depth" "$expected_directory" 2>/dev/null |
     /usr/bin/sort -h | /usr/bin/tail -n "$expected_lines" > "$test_directory/expected" || fail "$label: 基线失败"
-  expect_status 0 "$label" dsize "$@"
+  expect_status 0 "$label" dsize --flat "$@"
   cmp -s "$test_directory/expected" "$test_directory/out" || fail "$label: 输出与系统管道不同"
+  [[ ! -s "$test_directory/err" ]] || fail "$label: 成功时出现错误输出"
+}
+
+# 真实扫描只去掉大小列，直接与手写的树形结构比较。
+compare_tree() {
+  local label=$1
+  shift
+  cat > "$test_directory/expected"
+  expect_status 0 "$label" dsize "$@"
+  sed -E 's/^ *[0-9.]+[BKMGTPE]  //' "$test_directory/out" > "$test_directory/actual-tree"
+  cmp -s "$test_directory/expected" "$test_directory/actual-tree" || fail "$label: 树形结构不符；$(<"$test_directory/out")"
   [[ ! -s "$test_directory/err" ]] || fail "$label: 成功时出现错误输出"
 }
 
 mkdir -p "$test_directory/tree/small/deeper/deepest" "$test_directory/tree/空格 path" \
   "$test_directory/tree/-example" "$test_directory/mock" "$restricted_directory/hidden"
 dd if=/dev/zero of="$test_directory/tree/root-file" bs=1024 count=64 2>/dev/null
-dd if=/dev/zero of="$test_directory/tree/small/deeper/deepest/file" bs=1024 count=8 2>/dev/null
+dd if=/dev/zero of="$test_directory/tree/small/deeper/deepest/file" bs=1024 count=1024 2>/dev/null
 dd if=/dev/zero of="$test_directory/tree/空格 path/file" bs=1024 count=16 2>/dev/null
 dd if=/dev/zero of="$restricted_directory/hidden/file" bs=1024 count=8 2>/dev/null
 
@@ -75,8 +86,117 @@ compare_reference 分隔符在末尾 2 25 small small --
 compare_reference 分隔符后选项样路径 2 25 ./-example -d 2 -- -example
 compare_reference 最大条目 2 1 . -n 1
 [[ $(<"$test_directory/out") == *$'\t.' ]] || fail '最后一行应为最大目标汇总'
+compare_tree 默认树形 <<'TREE'
+.
+├── small
+│   └── deeper
+├── 空格 path
+└── -example
+TREE
+compare_tree 树形截取 -n 3 <<'TREE'
+.
+└── small
+    └── deeper
+TREE
+compare_tree 只显示汇总 -n 1 <<'TREE'
+.
+TREE
+compare_tree 零深度树形 -d 0 <<'TREE'
+.
+TREE
+compare_tree 更深树形 small -d 3 <<'TREE'
+small
+└── deeper
+    └── deepest
+TREE
+compare_tree 尾斜杠 small/ <<'TREE'
+small/
+└── deeper
+    └── deepest
+TREE
+compare_tree 连续斜杠 small/// <<'TREE'
+small///
+└── deeper
+    └── deepest
+TREE
+compare_tree 点路径 small/. <<'TREE'
+small/.
+└── deeper
+    └── deepest
+TREE
+compare_tree 父路径 small/../small <<'TREE'
+small/../small
+└── deeper
+    └── deepest
+TREE
+compare_tree 连字符树形 -- -example <<'TREE'
+./-example
+TREE
+special_directory="$test_directory/中文 空格 \\ [a] \$name"
+mkdir -p "$special_directory/子目录 \\ [b] \$child"
+compare_tree 特殊字符树形 "$special_directory" <<TREE
+$special_directory
+└── 子目录 \\ [b] \$child
+TREE
+
+# 固定未排序输入：交错的父子行必须归组，且不能按可读单位取整后排序。
+original_path=$PATH
+export DSIZE_TEST_DATA="$test_directory/du-data"
+cat > "$test_directory/mock/du" <<'MOCK'
+#!/bin/sh
+cat "$DSIZE_TEST_DATA"
+MOCK
+chmod +x "$test_directory/mock/du"
+printf '%s\n' $'134144\t./.next/cache' $'921600\t./node_modules/.pnpm' \
+  $'926720\t./node_modules' $'476160\t./.next/dev' $'697344\t./.next' \
+  $'1992294\t.' $'1024\t./.next/static' $'1024\t./docs' > "$DSIZE_TEST_DATA"
+PATH="$test_directory/mock:$original_path" expect_status 0 树形大小与归组 dsize -n 6
+cat > "$test_directory/expected" <<'TREE'
+  1.9G  .
+  905M  ├── node_modules
+  900M  │   └── .pnpm
+  681M  └── .next
+  465M      ├── dev
+  131M      └── cache
+TREE
+cmp -s "$test_directory/expected" "$test_directory/out" || fail "大小与归组不符；$(<"$test_directory/out")"
+printf '%s\n' $'0\t./z/sub' $'0\t./z' $'0\t./a/sub' $'0\t./a' $'0\t.' > "$DSIZE_TEST_DATA"
+PATH="$test_directory/mock:$original_path" compare_tree 同量保留祖先 -n 3 <<'TREE'
+.
+└── a
+    └── sub
+TREE
+printf '%s\n' $'12308\t./a' $'12309\t./z' $'24617\t.' > "$DSIZE_TEST_DATA"
+PATH="$test_directory/mock:$original_path" compare_tree 原始数值排序 -n 2 <<'TREE'
+.
+└── z
+TREE
+printf '%s\n' $'8\t/child' $'8\t/' > "$DSIZE_TEST_DATA"
+PATH="$test_directory/mock:$original_path" compare_tree 文件系统根路径 -n 2 <<'TREE'
+/
+└── child
+TREE
+printf '%s\n' $'8\t./a' $'8\t.' $'4\t./ab' > "$DSIZE_TEST_DATA"
+PATH="$test_directory/mock:$original_path" compare_tree 相近名称不误归组 <<'TREE'
+.
+├── a
+└── ab
+TREE
+deep_path=.
+printf '0\t.\n' > "$DSIZE_TEST_DATA"
+for level in {1..1000}; do
+  deep_path+=/x
+  printf '0\t%s\n' "$deep_path" >> "$DSIZE_TEST_DATA"
+done
+PATH="$test_directory/mock:$original_path" expect_status 0 千层树形 dsize -d 1000 -n 1001
+deep_output=( "${(@f)$(<"$test_directory/out")}" )
+[[ ${#deep_output} == 1001 && $deep_output[-1] == *'└── x' ]] || fail '深层树形被截断或渲染失败'
+[[ ! -s "$test_directory/err" ]] || fail '深层树形产生错误'
+rm "$test_directory/mock/du"
+
 expect_status 0 帮助 dsize --help
 [[ $(<"$test_directory/out") == *'last repeated option wins'* ]] || fail '帮助缺少重复选项说明'
+[[ $(<"$test_directory/out") == *'--flat'* && $(<"$test_directory/out") == *'tree'* ]] || fail '帮助缺少树形及兼容格式说明'
 expect_status 0 短帮助 dsize -h
 
 # Real scan data must remain byte-identical when only the display language changes.
@@ -121,35 +241,37 @@ chmod 700 "$restricted_directory/hidden"
 # 每个失败阶段独立注入，检查部分结果以及流水线错误不会伪装成功。
 cat > "$test_directory/mock/du" <<'MOCK'
 #!/bin/sh
-printf '4K\tpartial-result\n'
+printf '4\tpartial-result\n'
 exit 1
 MOCK
 chmod +x "$test_directory/mock/du"
-original_path=$PATH
 PATH="$test_directory/mock:$original_path" expect_status 1 du失败 dsize .
 [[ $(<"$test_directory/out") == *partial-result* ]] || fail 'du 失败时丢失部分结果'
 rm "$test_directory/mock/du"
-for stage_name in sort tail; do
+for stage_name in sort awk tail; do
   cat > "$test_directory/mock/$stage_name" <<'MOCK'
 #!/bin/sh
 /bin/cat >/dev/null
 exit 1
 MOCK
   chmod +x "$test_directory/mock/$stage_name"
-  PATH="$test_directory/mock:$original_path" expect_status 1 "$stage_name 失败" dsize .
-  [[ $(<"$test_directory/err") == *'Sorting or truncating output failed'* ]] || fail "$stage_name 缺少阶段错误"
+  stage_arguments=()
+  case $stage_name in tail) stage_arguments=(--flat) ;; esac
+  PATH="$test_directory/mock:$original_path" expect_status 1 "$stage_name 失败" dsize "${stage_arguments[@]}" .
+  [[ $(<"$test_directory/err") == *'Sorting, truncating, or formatting output failed'* ]] || fail "$stage_name 缺少阶段错误"
   rm "$test_directory/mock/$stage_name"
 done
 ln -s /usr/bin/du "$test_directory/mock/du"
 ln -s /usr/bin/sort "$test_directory/mock/sort"
-PATH="$test_directory/mock" expect_status 1 缺少tail dsize .
+PATH="$test_directory/mock" expect_status 1 缺少awk dsize .
+PATH="$test_directory/mock" expect_status 1 缺少tail dsize --flat .
 rm "$test_directory/mock/du" "$test_directory/mock/sort"
 
 # 即使各管道阶段返回 0，扫描期间接收到信号也必须报告失败。
 cat > "$test_directory/mock/du" <<'MOCK'
 #!/bin/sh
 kill -TERM "$PPID"
-printf '4K\tinterrupted-result\n'
+printf '4\tinterrupted-result\n'
 exit 0
 MOCK
 chmod +x "$test_directory/mock/du"

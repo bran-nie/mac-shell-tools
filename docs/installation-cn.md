@@ -4,7 +4,7 @@
 
 ## 支持的系统与 Zsh
 
-支持 macOS 和 Linux。mst、工具及补全依赖 Zsh，Oh My Zsh 可选。Linux 需要 GNU Coreutils 或支持相同工具参数的命令（dsize 使用 `du -h -d`、`sort -h`、`tail -n`），在线同步还需要 curl 和 tar。
+支持 macOS 和 Linux。mst、工具及补全依赖 Zsh，Oh My Zsh 可选。Linux 需要 GNU Coreutils 或支持相同工具参数的命令（dsize 树形输出使用 `du -k -d`、`sort -k` 和 POSIX `awk`，`--flat` 使用 `du -h -d`、`sort -h`、`tail -n`），在线同步还需要 curl 和 tar。
 
 Ubuntu 24.04 LTS 缺少依赖时可先执行：
 
