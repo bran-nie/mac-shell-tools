@@ -34,6 +34,11 @@ if [ -z "${ZSH_VERSION-}" ]; then return 0; fi
   elif [[ -f "$mac_shell_tools_directory/npmg/npmg.zsh" ]]; then
     source "$mac_shell_tools_directory/npmg/npmg.zsh"
   fi
+  if [[ -f "$mac_shell_tools_directory/tools/aliases/aliases.zsh" ]]; then
+    source "$mac_shell_tools_directory/tools/aliases/aliases.zsh"
+  elif [[ -f "$mac_shell_tools_directory/aliases/aliases.zsh" ]]; then
+    source "$mac_shell_tools_directory/aliases/aliases.zsh"
+  fi
 }
 # <<< mac-shell-tools managed tools <<<
 

@@ -58,6 +58,7 @@ mst install dsize
 | `portwho` | 查询一个或多个 TCP 端口的监听程序、PID、用户及地址 | [使用说明](docs/tools/portwho/README-cn.md) |
 | `extract` | 将 ZIP 和常见 TAR 压缩包解压到新目录，支持预览和 Tab 补全 | [使用说明](docs/tools/extract/README-cn.md) |
 | `npmg` | 在共享目录中安装、更新、卸载和查看 npm 全局包，需要 Node 和 npm | [使用说明](docs/tools/npmg/README-cn.md) |
+| `aliases` | 加载常用别名及个人 Zsh 文件，支持查看来源和当前终端重载 | [使用说明](docs/tools/aliases/README-cn.md) |
 
 ## 配置
 
@@ -73,9 +74,11 @@ mst install dsize
 │   ├── dsize/            # 每个工具独立存放源码、版本和语言包
 │   ├── portwho/          # 只出现已选择安装的工具
 │   ├── extract/
-│   └── npmg/
+│   ├── npmg/
+│   └── aliases/
 ├── config.conf           # 保存的偏好，设置时创建
 ├── npmg.conf             # 可选的 npmg prefix 配置，卸载后保留
+├── aliases.conf          # 可选的个人 Zsh 文件路径，卸载后保留
 └── backups/              # 修改或删除文件前的备份
 ```
 

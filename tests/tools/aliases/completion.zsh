@@ -1,0 +1,12 @@
+# Real Tab cases; completion never invokes aliases or sources a personal file.
+expect_completion 列表 'aliases li' 'aliases list '
+expect_completion 查看 'aliases sh' 'aliases show '
+expect_completion 重载 'aliases rel' 'aliases reload '
+expect_completion 配置 'aliases conf' 'aliases config '
+expect_completion 配置文件 'aliases config fi' 'aliases config file '
+expect_completion 配置查看 'aliases config sh' 'aliases config show '
+expect_completion 文件路径 'aliases config file bundle\ f' 'aliases config file bundle\ file.zip '
+expect_completion 配置重置 'aliases config file --re' 'aliases config file --reset '
+expect_completion 帮助 'aliases --he' 'aliases --help '
+expect_completion 版本 'aliases --ver' 'aliases --version '
+expect_completion 名称 'aliases show du' 'aliases show duls '

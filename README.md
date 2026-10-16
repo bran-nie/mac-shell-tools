@@ -58,6 +58,7 @@ After a change, an interactive terminal starts a new login Zsh. Pass `--no-run-z
 | `portwho` | Find programs listening on one or more TCP ports, with PID, user, and address | [Usage](docs/tools/portwho/README.md) |
 | `extract` | Extract ZIP and common TAR archives into a new directory, with preview and Tab completion | [Usage](docs/tools/extract/README.md) |
 | `npmg` | Install, update, uninstall, and list npm global packages in a shared directory; requires Node and npm | [Usage](docs/tools/npmg/README.md) |
+| `aliases` | Load common aliases and a personal Zsh file, with source inspection and reload | [Usage](docs/tools/aliases/README.md) |
 
 ## Configuration
 
@@ -73,9 +74,11 @@ The default installation root is `~/.config/zsh/mac-shell-tools/`:
 │   ├── dsize/            # Each installed tool has its own source, version,
 │   ├── portwho/          # and language packs; only selected tools appear
 │   ├── extract/
-│   └── npmg/
+│   ├── npmg/
+│   └── aliases/
 ├── config.conf           # Saved preferences, created when configured
 ├── npmg.conf             # Optional saved npmg prefix; retained on uninstall
+├── aliases.conf          # Optional personal Zsh file path; retained on uninstall
 └── backups/              # Backups of changed or removed files
 ```
 
